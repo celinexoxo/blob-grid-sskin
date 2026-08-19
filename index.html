@@ -11,20 +11,11 @@
   <title>sskin</title>
 
   <style>
-    /* ================================================
-       RESET
-       ================================================ */
-
     * {
       box-sizing: border-box;
       margin: 0;
       padding: 0;
     }
-
-
-    /* ================================================
-       PAGE
-       ================================================ */
 
     html,
     body {
@@ -40,17 +31,11 @@
       touch-action: none;
     }
 
-
-    /* ================================================
-       CANVAS CONTAINER
-       ================================================ */
-
     #wrap {
       position: fixed;
       inset: 50px;
       background: #000;
     }
-
 
     #cv {
       position: absolute;
@@ -62,30 +47,20 @@
       display: block;
 
       /*
-       * Wichtig:
-       * NICHT pixelated verwenden.
-       *
-       * Das Canvas wird intern mit der
-       * echten Displayauflösung gerendert.
+       * Kein pixelated Rendering.
+       * Das Canvas wird in echter Displayauflösung
+       * gerendert.
        */
       image-rendering: auto;
     }
 
-
-    /* ================================================
-       MOBILE
-       ================================================ */
-
     @media (max-width: 600px) {
-
       #wrap {
         inset: 20px;
       }
-
     }
   </style>
 </head>
-
 
 <body>
 
@@ -120,80 +95,52 @@
 
       /*
        * Abstand zwischen den Punkten.
-       *
-       * Desktop:
-       * 56px
-       *
-       * Mobile:
-       * 38px
        */
-
       const DESKTOP_SPACING = 56;
       const MOBILE_SPACING = 38;
 
 
-      // ==================================================
-      // POINT SIZE
-      // ==================================================
-
       /*
-       * Grundgröße.
+       * Die Punkte sind standardmässig klein.
        *
-       * Die Punkte bleiben außerhalb des
-       * Cursor-Bereichs sehr klein und scharf.
+       * Das entspricht wesentlich stärker
+       * dem ursprünglichen CodePen.
        */
-
       const BASE_R = 3.2;
 
 
       /*
-       * Maximale Größe direkt beim Cursor.
+       * Maximale Punktgröße,
+       * wenn der Mauszeiger direkt darüber ist.
        */
-
-      const MAX_R = 18;
+      const MAX_R = 15;
 
 
       /*
-       * Radius des lokalen Vergrößerungseffekts.
+       * Radius des lokalen Maus-Effekts.
        *
-       * Je kleiner der Wert,
-       * desto konzentrierter der Effekt.
+       * Wichtig:
+       * Nur in diesem relativ kleinen Bereich
+       * werden die Punkte größer.
        */
-
-      const POINTER_RADIUS = 125;
+      const POINTER_RADIUS = 115;
 
 
       // ==================================================
-      // MOVEMENT
+      // PHYSICS
       // ==================================================
-
-      /*
-       * Federstärke.
-       */
 
       const SPRING_K = 0.09;
-
-
-      /*
-       * Dämpfung.
-       */
 
       const DAMP = 0.78;
 
 
       /*
-       * Radius des Bewegungsbereichs.
+       * Bewegung der Punkte zum Cursor.
        */
-
       const GRAVITY_R = 145;
 
-
-      /*
-       * Wie stark die Punkte zum Cursor
-       * gezogen werden.
-       */
-
-      const GRAVITY_MAX = 25;
+      const GRAVITY_MAX = 17;
 
 
       // ==================================================
@@ -209,32 +156,6 @@
       const FREQ = 13.0;
 
       const COL_SPREAD = 0.65;
-
-
-      // ==================================================
-      // BLENDING
-      // ==================================================
-
-      /*
-       * Blur nur für die großen Punkte.
-       *
-       * Dadurch bleiben die kleinen Punkte
-       * gestochen scharf.
-       */
-
-      const BLUR_AMOUNT = 5;
-
-
-      /*
-       * Der scharfe Kern der großen Punkte.
-       *
-       * 0.72 bedeutet:
-       *
-       * 72% des Radius werden nochmals
-       * scharf gezeichnet.
-       */
-
-      const CORE_SIZE = 0.72;
 
 
       // ==================================================
@@ -261,18 +182,10 @@
       let nextDropAt = 0.6;
 
 
-      // ==================================================
-      // POINTER
-      // ==================================================
-
       const pointer = {
-
         x: -9999,
-
         y: -9999,
-
         active: false
-
       };
 
 
@@ -293,11 +206,13 @@
         /*
          * High-DPI / Retina Rendering.
          *
-         * Auf einem Retina-Display kann DPR
-         * beispielsweise 2 oder 3 sein.
+         * Funktioniert sowohl auf:
          *
-         * Dadurch wird das Canvas intern
-         * deutlich höher aufgelöst gerendert.
+         * - normalen Desktop-Monitoren
+         * - Retina Mac
+         * - 4K Monitoren
+         * - iPhone
+         * - Android
          */
 
         DPR =
@@ -308,22 +223,16 @@
 
 
         cv.width =
-          Math.round(
-            W * DPR
-          );
-
+          Math.round(W * DPR);
 
         cv.height =
-          Math.round(
-            H * DPR
-          );
+          Math.round(H * DPR);
 
 
         /*
-         * Wir arbeiten weiterhin mit
-         * normalen CSS-Pixel-Koordinaten.
+         * Wir zeichnen weiterhin
+         * in CSS-Pixeln.
          */
-
         ctx.setTransform(
           DPR,
           0,
@@ -335,9 +244,8 @@
 
 
         /*
-         * Auf Mobile engeres Raster.
+         * Raster auf Mobile etwas enger.
          */
-
         SPACING =
           W <= 600
             ? MOBILE_SPACING
@@ -349,25 +257,19 @@
 
 
       // ==================================================
-      // BUILD GRID
+      // GRID
       // ==================================================
 
       function buildGrid() {
 
         const ox =
-          (
-            W -
-            (COLS - 1) *
-            SPACING
-          ) / 2;
+          (W -
+            (COLS - 1) * SPACING) / 2;
 
 
         const oy =
-          (
-            H -
-            (ROWS - 1) *
-            SPACING
-          ) / 2;
+          (H -
+            (ROWS - 1) * SPACING) / 2;
 
 
         dots = [];
@@ -397,103 +299,58 @@
 
             dots.push({
 
-              /*
-               * Ursprungsposition
-               */
-
               bx,
               by,
-
-
-              /*
-               * Aktuelle Position
-               */
 
               x: bx,
               y: by,
 
-
-              /*
-               * Geschwindigkeit
-               */
-
               vx: 0,
               vy: 0,
 
-
               /*
-               * Aktueller Radius
+               * Jeder Punkt startet klein.
                */
-
               r: BASE_R,
-
-
-              /*
-               * Grid Position
-               */
 
               col,
               row
 
             });
-
           }
-
         }
-
       }
 
 
       // ==================================================
-      // CREATE WAVE
+      // WAVE
       // ==================================================
 
       function spawnDrop() {
 
         drops.push({
 
-          /*
-           * Zufällige Spalte
-           */
-
           col:
             Math.floor(
-              Math.random() *
-              COLS
+              Math.random() * COLS
             ),
 
-
-          /*
-           * Startzeit
-           */
-
           time: t,
-
-
-          /*
-           * leicht zufällige Stärke
-           */
 
           amp:
             BOUNCE_AMP *
             (
               0.7 +
-              Math.random() *
-              0.55
+              Math.random() * 0.55
             )
 
         });
 
 
-        /*
-         * Nächste Welle
-         */
-
         nextDropAt =
           t +
           1.8 +
-          Math.random() *
-          2.4;
+          Math.random() * 2.4;
       }
 
 
@@ -503,74 +360,45 @@
 
       function update(delta) {
 
-        /*
-         * Framerate-unabhängige Zeit.
-         */
-
         const dt =
-          Math.min(
-            delta,
-            32
-          ) / 16.6667;
+          Math.min(delta, 32) /
+          16.6667;
 
 
         t +=
-          0.016 *
-          dt;
+          0.016 * dt;
 
 
         // ----------------------------------------------
-        // AUTOMATIC WAVE
+        // Automatische Welle
         // ----------------------------------------------
 
-        if (
-          t >=
-          nextDropAt
-        ) {
-
+        if (t >= nextDropAt) {
           spawnDrop();
-
         }
 
-
-        /*
-         * Alte Wellen entfernen.
-         */
 
         drops =
           drops.filter(
             drop =>
-              (
-                t -
-                drop.time
-              ) < 2.5
+              (t - drop.time) < 2.5
           );
 
 
         // ----------------------------------------------
-        // UPDATE DOTS
+        // Punkte
         // ----------------------------------------------
 
-        for (
-          const dot of dots
-        ) {
+        for (const dot of dots) {
 
-          /*
-           * Zielposition.
-           */
-
-          let tx =
-            dot.bx;
-
-
-          let ty =
-            dot.by;
+          let tx = dot.bx;
+          let ty = dot.by;
 
 
           /*
-           * Standardmäßig kleiner Punkt.
+           * Jeder Punkt beginnt mit der
+           * kleinen Standardgröße.
            */
-
           let targetRadius =
             BASE_R;
 
@@ -579,25 +407,15 @@
           // WAVE
           // ============================================
 
-          for (
-            const drop of drops
-          ) {
+          for (const drop of drops) {
 
             const localT =
-              (
-                t -
-                drop.time
-              ) -
-              dot.row *
-              ROW_DELAY;
+              (t - drop.time) -
+              dot.row * ROW_DELAY;
 
 
-            if (
-              localT <= 0
-            ) {
-
+            if (localT <= 0) {
               continue;
-
             }
 
 
@@ -610,39 +428,27 @@
 
             const lateral =
               Math.exp(
-                -(
-                  colDist ** 2
-                ) *
+                -(colDist ** 2) *
                 COL_SPREAD
               );
 
 
-            if (
-              lateral <
-              0.01
-            ) {
-
+            if (lateral < 0.01) {
               continue;
-
             }
 
 
             ty +=
-
               drop.amp *
-
               Math.exp(
                 -DECAY *
                 localT
               ) *
-
               Math.sin(
                 FREQ *
                 localT
               ) *
-
               lateral;
-
           }
 
 
@@ -650,9 +456,7 @@
           // POINTER
           // ============================================
 
-          if (
-            pointer.active
-          ) {
+          if (pointer.active) {
 
             const dx =
               pointer.x -
@@ -677,7 +481,13 @@
             ) {
 
               /*
-               * Normale Influence.
+               * Sehr weicher Verlauf:
+               *
+               * Direkt unter dem Cursor:
+               * 100 %
+               *
+               * Am Rand:
+               * 0 %
                */
 
               const influence =
@@ -692,25 +502,20 @@
               /*
                * Cubic Falloff.
                *
-               * Dadurch entsteht ein
-               * relativ kleiner, konzentrierter
-               * Bereich.
+               * Dadurch bleiben die Punkte
+               * ausserhalb des Zentrums klein.
                */
-
               const strength =
                 influence *
                 influence *
                 influence;
 
 
-              // ----------------------------------------
-              // POINT SIZE
-              // ----------------------------------------
-
+              /*
+               * Punkt wird grösser.
+               */
               targetRadius =
-
                 BASE_R +
-
                 (
                   MAX_R -
                   BASE_R
@@ -718,14 +523,15 @@
                 strength;
 
 
-              // ----------------------------------------
-              // MOVEMENT
-              // ----------------------------------------
+              /*
+               * Zusätzlich werden die Punkte
+               * leicht zum Cursor gezogen.
+               *
+               * Dadurch beginnen benachbarte
+               * Punkte sich zu überlappen.
+               */
 
-              if (
-                distance >
-                0.001
-              ) {
+              if (distance > 0.001) {
 
                 const movement =
                   strength *
@@ -746,11 +552,8 @@
                     distance
                   ) *
                   movement;
-
               }
-
             }
-
           }
 
 
@@ -759,32 +562,22 @@
           // ============================================
 
           dot.vx +=
-
             (
               tx -
               dot.x
             ) *
-
             SPRING_K *
-
             dt;
 
 
           dot.vy +=
-
             (
               ty -
               dot.y
             ) *
-
             SPRING_K *
-
             dt;
 
-
-          // ============================================
-          // DAMPING
-          // ============================================
 
           dot.vx *=
             Math.pow(
@@ -799,10 +592,6 @@
               dt
             );
 
-
-          // ============================================
-          // POSITION
-          // ============================================
 
           dot.x +=
             dot.vx *
@@ -819,18 +608,13 @@
           // ============================================
 
           dot.r +=
-
             (
               targetRadius -
               dot.r
             ) *
-
             0.16 *
-
             dt;
-
         }
-
       }
 
 
@@ -840,9 +624,9 @@
 
       function draw() {
 
-        // ----------------------------------------------
-        // BACKGROUND
-        // ----------------------------------------------
+        /*
+         * Schwarzer Hintergrund.
+         */
 
         ctx.fillStyle =
           '#000';
@@ -856,156 +640,41 @@
         );
 
 
-        // ----------------------------------------------
-        // SMALL SHARP POINTS
-        // ----------------------------------------------
-
-        ctx.fillStyle =
-          '#fff';
-
-
-        for (
-          const dot of dots
-        ) {
-
-          /*
-           * Kleine Punkte werden komplett
-           * ohne Blur gezeichnet.
-           */
-
-          if (
-            dot.r <
-            BASE_R + 1
-          ) {
-
-            ctx.beginPath();
-
-
-            ctx.arc(
-              dot.x,
-              dot.y,
-              dot.r,
-              0,
-              Math.PI * 2
-            );
-
-
-            ctx.fill();
-
-          }
-
-        }
-
-
-        // ----------------------------------------------
-        // LARGE BLENDED POINTS
-        // ----------------------------------------------
-
-        ctx.save();
-
-
         /*
-         * Nur die großen Punkte bekommen
-         * einen Blur.
+         * Die Punkte werden weiss gezeichnet.
          *
-         * Dadurch können benachbarte Punkte
-         * optisch miteinander verschmelzen.
-         */
-
-        ctx.filter =
-          `blur(${BLUR_AMOUNT}px)`;
-
-
-        ctx.fillStyle =
-          '#fff';
-
-
-        for (
-          const dot of dots
-        ) {
-
-          if (
-            dot.r >=
-            BASE_R + 1
-          ) {
-
-            ctx.beginPath();
-
-
-            ctx.arc(
-              dot.x,
-              dot.y,
-              dot.r,
-              0,
-              Math.PI * 2
-            );
-
-
-            ctx.fill();
-
-          }
-
-        }
-
-
-        ctx.restore();
-
-
-        // ----------------------------------------------
-        // SHARP CORE
-        // ----------------------------------------------
-
-        /*
-         * Nach dem Blur zeichnen wir einen
-         * scharfen Kern über die großen Punkte.
+         * Kein globaler Blur.
+         * Kein Filter.
          *
-         * So bekommt man gleichzeitig:
-         *
-         * - weiche Verbindung
-         * - scharfen Mittelpunkt
+         * Dadurch bleiben die kleinen Punkte
+         * auf Desktop und Mobile gestochen scharf.
          */
 
         ctx.fillStyle =
           '#fff';
 
 
-        for (
-          const dot of dots
-        ) {
+        for (const dot of dots) {
 
-          if (
-            dot.r >=
-            BASE_R + 1
-          ) {
-
-            const core =
-              dot.r *
-              CORE_SIZE;
+          ctx.beginPath();
 
 
-            ctx.beginPath();
+          ctx.arc(
+            dot.x,
+            dot.y,
+            dot.r,
+            0,
+            Math.PI * 2
+          );
 
 
-            ctx.arc(
-              dot.x,
-              dot.y,
-              core,
-              0,
-              Math.PI * 2
-            );
-
-
-            ctx.fill();
-
-          }
-
+          ctx.fill();
         }
-
       }
 
 
       // ==================================================
-      // POINTER POSITION
+      // POINTER
       // ==================================================
 
       function setPointer(
@@ -1072,8 +741,7 @@
         event => {
 
           if (
-            event.touches.length >
-            0
+            event.touches.length
           ) {
 
             setPointer(
@@ -1095,8 +763,7 @@
         event => {
 
           if (
-            event.touches.length >
-            0
+            event.touches.length
           ) {
 
             setPointer(
@@ -1151,14 +818,14 @@
 
 
       // ==================================================
-      // START
+      // INITIALISIERUNG
       // ==================================================
 
       resize();
 
 
       // ==================================================
-      // ANIMATION LOOP
+      // ANIMATION
       // ==================================================
 
       function animate(now) {
@@ -1180,7 +847,6 @@
         requestAnimationFrame(
           animate
         );
-
       }
 
 
