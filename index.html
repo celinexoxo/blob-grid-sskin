@@ -1,1 +1,474 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sharp Dot Grid</title>
 
+  <style>
+    *,
+    *::before,
+    *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    html,
+    body {
+      width: 100%;
+      height: 100%;
+    }
+
+    body {
+      background: #000;
+      overflow: hidden;
+      min-height: 100vh;
+    }
+
+    #wrap {
+      position: fixed;
+      inset: 50px;
+      background: #000;
+
+      /*
+       * Original:
+       * filter: blur(8px) contrast(28);
+       *
+       * Für scharfe Punkte:
+       */
+      filter: none;
+    }
+
+    #cv {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+  </style>
+</head>
+
+<body>
+
+  <div id="wrap">
+    <canvas id="cv"></canvas>
+  </div>
+
+  <script>
+    (() => {
+      const cv = document.getElementById('cv');
+      const ctx = cv.getContext('2d');
+
+      // --------------------------------------------------
+      // GRID
+      // --------------------------------------------------
+
+      const COLS = 9;
+      const ROWS = 9;
+      const SPACING = 56;
+
+      // Punktgröße
+      const BASE_R = 12;
+
+      // --------------------------------------------------
+      // PHYSICS
+      // --------------------------------------------------
+
+      const SPRING_K = 0.09;
+      const DAMP = 0.78;
+
+      // Einflussbereich der Maus
+      const GRAVITY_R = 210;
+
+      // Maximale Verschiebung durch die Maus
+      const GRAVITY_MAX = 20;
+
+      // --------------------------------------------------
+      // WAVE
+      // --------------------------------------------------
+
+      const ROW_DELAY = 0.055;
+
+      const BOUNCE_AMP = 12;
+
+      const DECAY = 4.2;
+
+      const FREQ = 13.0;
+
+      const COL_SPREAD = 0.65;
+
+      // --------------------------------------------------
+      // STATE
+      // --------------------------------------------------
+
+      let W;
+      let H;
+
+      let dots;
+
+      let t = 0;
+
+      const mouse = {
+        x: -9999,
+        y: -9999,
+        on: false
+      };
+
+      let drops = [];
+
+      let nextDropAt = 0.6;
+
+
+      // --------------------------------------------------
+      // SETUP
+      // --------------------------------------------------
+
+      function resize() {
+        W = cv.width = window.innerWidth;
+        H = cv.height = window.innerHeight;
+
+        buildGrid();
+      }
+
+
+      function buildGrid() {
+        const ox =
+          (W - (COLS - 1) * SPACING) / 2;
+
+        const oy =
+          (H - (ROWS - 1) * SPACING) / 2;
+
+        dots = [];
+
+        for (let ri = 0; ri < ROWS; ri++) {
+
+          for (let ci = 0; ci < COLS; ci++) {
+
+            const bx =
+              ox + ci * SPACING;
+
+            const by =
+              oy + ri * SPACING;
+
+            dots.push({
+              bx,
+              by,
+
+              x: bx,
+              y: by,
+
+              vx: 0,
+              vy: 0,
+
+              r: BASE_R,
+
+              col: ci,
+              row: ri
+            });
+          }
+        }
+      }
+
+
+      // --------------------------------------------------
+      // DROP / WAVE
+      // --------------------------------------------------
+
+      function spawnDrop() {
+
+        drops.push({
+
+          col:
+            Math.floor(
+              Math.random() * COLS
+            ),
+
+          time: t,
+
+          amp:
+            BOUNCE_AMP *
+            (0.7 + Math.random() * 0.55)
+        });
+
+        nextDropAt =
+          t +
+          1.8 +
+          Math.random() * 2.4;
+      }
+
+
+      // --------------------------------------------------
+      // PHYSICS LOOP
+      // --------------------------------------------------
+
+      function tick() {
+
+        t += 0.016;
+
+        if (t >= nextDropAt) {
+          spawnDrop();
+        }
+
+        drops = drops.filter(
+          d => (t - d.time) < 2.5
+        );
+
+
+        for (const d of dots) {
+
+          let tx = d.bx;
+          let ty = d.by;
+
+          let tr = BASE_R;
+
+
+          // ----------------------------------------------
+          // DROP WAVE
+          // ----------------------------------------------
+
+          for (const drop of drops) {
+
+            const localT =
+              (t - drop.time) -
+              d.row * ROW_DELAY;
+
+            if (localT <= 0) {
+              continue;
+            }
+
+
+            const colDist =
+              Math.abs(
+                d.col - drop.col
+              );
+
+
+            const lateral =
+              Math.exp(
+                -(colDist ** 2) *
+                COL_SPREAD
+              );
+
+
+            if (lateral < 0.01) {
+              continue;
+            }
+
+
+            ty +=
+              drop.amp *
+              Math.exp(
+                -DECAY * localT
+              ) *
+              Math.sin(
+                FREQ * localT
+              ) *
+              lateral;
+          }
+
+
+          // ----------------------------------------------
+          // MOUSE GRAVITY
+          // ----------------------------------------------
+
+          if (mouse.on) {
+
+            const dx =
+              mouse.x - d.bx;
+
+            const dy =
+              mouse.y - d.by;
+
+            const dist =
+              Math.hypot(dx, dy);
+
+
+            if (
+              dist < GRAVITY_R &&
+              dist > 1
+            ) {
+
+              const pull =
+                (1 - dist / GRAVITY_R) ** 2;
+
+
+              const off =
+                pull * GRAVITY_MAX;
+
+
+              tx +=
+                (dx / dist) * off;
+
+              ty +=
+                (dy / dist) * off;
+
+
+              tr =
+                BASE_R *
+                (1 + pull * 0.22);
+            }
+          }
+
+
+          // ----------------------------------------------
+          // SPRING
+          // ----------------------------------------------
+
+          d.vx +=
+            (tx - d.x) *
+            SPRING_K;
+
+          d.vy +=
+            (ty - d.y) *
+            SPRING_K;
+
+
+          d.vx *= DAMP;
+          d.vy *= DAMP;
+
+
+          d.x += d.vx;
+          d.y += d.vy;
+
+
+          d.r +=
+            (tr - d.r) *
+            0.10;
+        }
+      }
+
+
+      // --------------------------------------------------
+      // RENDER
+      // --------------------------------------------------
+
+      function draw() {
+
+        ctx.fillStyle = '#000';
+
+        ctx.fillRect(
+          0,
+          0,
+          W,
+          H
+        );
+
+
+        /*
+         * Reines Weiß ohne Blur.
+         * Dadurch bleiben die Kreise wirklich scharf.
+         */
+        ctx.fillStyle = '#fff';
+
+
+        for (const d of dots) {
+
+          ctx.beginPath();
+
+          ctx.arc(
+            d.x,
+            d.y,
+            d.r,
+            0,
+            Math.PI * 2
+          );
+
+          ctx.fill();
+        }
+      }
+
+
+      // --------------------------------------------------
+      // MOUSE
+      // --------------------------------------------------
+
+      window.addEventListener(
+        'mousemove',
+        e => {
+
+          mouse.x = e.clientX;
+          mouse.y = e.clientY;
+
+          mouse.on = true;
+        }
+      );
+
+
+      window.addEventListener(
+        'mouseleave',
+        () => {
+          mouse.on = false;
+        }
+      );
+
+
+      // --------------------------------------------------
+      // TOUCH
+      // --------------------------------------------------
+
+      window.addEventListener(
+        'touchmove',
+        e => {
+
+          e.preventDefault();
+
+          mouse.x =
+            e.touches[0].clientX;
+
+          mouse.y =
+            e.touches[0].clientY;
+
+          mouse.on = true;
+
+        },
+        {
+          passive: false
+        }
+      );
+
+
+      window.addEventListener(
+        'touchend',
+        () => {
+          mouse.on = false;
+        }
+      );
+
+
+      // --------------------------------------------------
+      // RESIZE
+      // --------------------------------------------------
+
+      window.addEventListener(
+        'resize',
+        resize
+      );
+
+
+      // Initialisierung
+      resize();
+
+
+      // --------------------------------------------------
+      // ANIMATION
+      // --------------------------------------------------
+
+      function loop() {
+
+        tick();
+
+        draw();
+
+        requestAnimationFrame(loop);
+      }
+
+
+      loop();
+
+    })();
+  </script>
+
+</body>
+</html>
