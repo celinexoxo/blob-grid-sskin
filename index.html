@@ -93,36 +93,20 @@
       const ROWS = 9;
 
 
-      /*
-       * Abstand zwischen den Punkten.
-       */
+
       const DESKTOP_SPACING = 56;
       const MOBILE_SPACING = 38;
 
 
-      /*
-       * Die Punkte sind standardmässig klein.
-       *
-       * Das entspricht wesentlich stärker
-       * dem ursprünglichen CodePen.
-       */
+
       const BASE_R = 3.2;
 
 
-      /*
-       * Maximale Punktgröße,
-       * wenn der Mauszeiger direkt darüber ist.
-       */
+
       const MAX_R = 15;
 
 
-      /*
-       * Radius des lokalen Maus-Effekts.
-       *
-       * Wichtig:
-       * Nur in diesem relativ kleinen Bereich
-       * werden die Punkte größer.
-       */
+
       const POINTER_RADIUS = 115;
 
 
@@ -135,9 +119,7 @@
       const DAMP = 0.78;
 
 
-      /*
-       * Bewegung der Punkte zum Cursor.
-       */
+
       const GRAVITY_R = 145;
 
       const GRAVITY_MAX = 17;
@@ -203,17 +185,6 @@
         H = rect.height;
 
 
-        /*
-         * High-DPI / Retina Rendering.
-         *
-         * Funktioniert sowohl auf:
-         *
-         * - normalen Desktop-Monitoren
-         * - Retina Mac
-         * - 4K Monitoren
-         * - iPhone
-         * - Android
-         */
 
         DPR =
           Math.min(
@@ -229,10 +200,7 @@
           Math.round(H * DPR);
 
 
-        /*
-         * Wir zeichnen weiterhin
-         * in CSS-Pixeln.
-         */
+
         ctx.setTransform(
           DPR,
           0,
@@ -243,9 +211,7 @@
         );
 
 
-        /*
-         * Raster auf Mobile etwas enger.
-         */
+
         SPACING =
           W <= 600
             ? MOBILE_SPACING
@@ -308,9 +274,7 @@
               vx: 0,
               vy: 0,
 
-              /*
-               * Jeder Punkt startet klein.
-               */
+
               r: BASE_R,
 
               col,
@@ -395,10 +359,7 @@
           let ty = dot.by;
 
 
-          /*
-           * Jeder Punkt beginnt mit der
-           * kleinen Standardgröße.
-           */
+
           let targetRadius =
             BASE_R;
 
@@ -480,15 +441,7 @@
               POINTER_RADIUS
             ) {
 
-              /*
-               * Sehr weicher Verlauf:
-               *
-               * Direkt unter dem Cursor:
-               * 100 %
-               *
-               * Am Rand:
-               * 0 %
-               */
+
 
               const influence =
                 Math.max(
@@ -499,21 +452,14 @@
                 );
 
 
-              /*
-               * Cubic Falloff.
-               *
-               * Dadurch bleiben die Punkte
-               * ausserhalb des Zentrums klein.
-               */
+
               const strength =
                 influence *
                 influence *
                 influence;
 
 
-              /*
-               * Punkt wird grösser.
-               */
+
               targetRadius =
                 BASE_R +
                 (
@@ -523,13 +469,7 @@
                 strength;
 
 
-              /*
-               * Zusätzlich werden die Punkte
-               * leicht zum Cursor gezogen.
-               *
-               * Dadurch beginnen benachbarte
-               * Punkte sich zu überlappen.
-               */
+
 
               if (distance > 0.001) {
 
@@ -624,9 +564,7 @@
 
       function draw() {
 
-        /*
-         * Schwarzer Hintergrund.
-         */
+
 
         ctx.fillStyle =
           '#000';
@@ -640,15 +578,7 @@
         );
 
 
-        /*
-         * Die Punkte werden weiss gezeichnet.
-         *
-         * Kein globaler Blur.
-         * Kein Filter.
-         *
-         * Dadurch bleiben die kleinen Punkte
-         * auf Desktop und Mobile gestochen scharf.
-         */
+
 
         ctx.fillStyle =
           '#fff';
