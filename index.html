@@ -8,11 +8,10 @@
     content="width=device-width, initial-scale=1.0, viewport-fit=cover"
   >
 
-  <title>Home — sskin</title>
-
-  <!-- Favicon -->
   <link rel="icon" type="image/svg+xml" href="favicon.svg">
 
+  <title>Home – sskin</title>
+  
   <style>
     * {
       box-sizing: border-box;
@@ -43,9 +42,12 @@
     #cv {
       position: absolute;
       inset: 0;
+
       width: 100%;
       height: 100%;
+
       display: block;
+
       image-rendering: auto;
     }
 
@@ -62,6 +64,7 @@
   <div id="wrap">
     <canvas id="cv"></canvas>
   </div>
+
 
   <script>
     (() => {
@@ -90,6 +93,7 @@
       const MOBILE_SPACING = 38;
 
       const BASE_R = 3.2;
+
       const MAX_R = 15;
 
       const POINTER_RADIUS = 115;
@@ -100,9 +104,11 @@
       // ==================================================
 
       const SPRING_K = 0.09;
+
       const DAMP = 0.78;
 
       const GRAVITY_R = 145;
+
       const GRAVITY_MAX = 17;
 
 
@@ -111,9 +117,13 @@
       // ==================================================
 
       const ROW_DELAY = 0.055;
+
       const BOUNCE_AMP = 10;
+
       const DECAY = 4.2;
+
       const FREQ = 13.0;
+
       const COL_SPREAD = 0.65;
 
 
@@ -123,18 +133,21 @@
 
       let W = 0;
       let H = 0;
+
       let DPR = 1;
 
       let SPACING =
         DESKTOP_SPACING;
 
       let dots = [];
+
       let t = 0;
 
       let lastTime =
         performance.now();
 
       let drops = [];
+
       let nextDropAt = 0.6;
 
 
@@ -407,6 +420,7 @@
                   BASE_R
                 ) *
                 strength;
+
 
               if (distance > 0.001) {
 
@@ -686,6 +700,7 @@
           now;
 
         update(delta);
+
         draw();
 
         requestAnimationFrame(
