@@ -39,9 +39,7 @@
     inset: clamp(20px, 4vw, 50px);
     background: #000;
     overflow: hidden;
-
     touch-action: none;
-
     transform: translateZ(0);
     -webkit-transform: translateZ(0);
   }
@@ -53,10 +51,8 @@
     height: 100%;
     display: block;
     overflow: visible;
-
     transform: translateZ(0);
     -webkit-transform: translateZ(0);
-
     pointer-events: none;
   }
 
@@ -67,7 +63,6 @@
   .liquid-group {
     fill: #fff;
     filter: url(#mercury);
-
     transform: translateZ(0);
     -webkit-transform: translateZ(0);
   }
@@ -89,10 +84,6 @@ preserveAspectRatio="none"
 
 ```
 <defs>
-
-  <!-- ================================================================
-       MERCURY FILTER
-       ================================================================ -->
 
   <filter
     id="mercury"
@@ -169,11 +160,6 @@ preserveAspectRatio="none"
   // DEVICE
   // =========================================================================
 
-  /*
-   * Mobile wird ausschließlich über Touch/Coarse Pointer erkannt.
-   *
-   * Desktop/MacBook bleibt dadurch komplett unverändert.
-   */
   const IS_MOBILE =
     window.matchMedia(
       '(pointer: coarse)'
@@ -192,25 +178,25 @@ preserveAspectRatio="none"
 
 
   /*
+   * RUHEGRÖSSE
+   *
    * Desktop:
-   * ursprüngliche Grösse.
+   * vorher 5.5px
+   * jetzt 4.5px
    *
    * Mobile:
-   * etwas kleinere Grundgrösse.
+   * vorher 4.5px
+   * jetzt 3.8px
    */
   const BASE_R =
     IS_MOBILE
-      ? 4.5
-      : 5.5;
+      ? 3.8
+      : 4.5;
 
 
   /*
-   * Desktop:
-   * 24
-   *
-   * Mobile:
-   * etwas kleiner, damit die aktiven
-   * Punkte nicht zu dominant werden.
+   * Maximale Grösse aktiver Punkte
+   * bleibt bewusst erhalten.
    */
   const MAX_R =
     IS_MOBILE
@@ -229,7 +215,6 @@ preserveAspectRatio="none"
       ? 21
       : 25;
 
-
   const ACTIVE_COUNT = 3;
 
 
@@ -239,13 +224,6 @@ preserveAspectRatio="none"
 
   const DISTANT_RADIUS = 260;
 
-
-  /*
-   * Mobile:
-   * noch etwas kleinere äussere Punkte.
-   *
-   * Desktop bleibt bei 55 %.
-   */
   const DISTANT_MIN_SCALE =
     IS_MOBILE
       ? 0.48
@@ -256,25 +234,8 @@ preserveAspectRatio="none"
   // MOBILE OPACITY
   // =========================================================================
 
-  /*
-   * Nur Mobile:
-   *
-   * Punkte direkt beim Finger:
-   * 100 % sichtbar.
-   *
-   * Aussen:
-   * bis auf 16 % herunter.
-   *
-   * Dadurch entsteht ein weiches
-   * Lichtzentrum.
-   */
   const MOBILE_MIN_OPACITY = 0.16;
 
-
-  /*
-   * Bereich, über den die Helligkeit
-   * ausläuft.
-   */
   const MOBILE_FADE_RADIUS = 300;
 
 
@@ -316,8 +277,6 @@ preserveAspectRatio="none"
   // =========================================================================
 
   const normalElements = [];
-
-  const liquidElements = [];
 
   const liquidGroupsCache = [];
 
@@ -436,9 +395,6 @@ preserveAspectRatio="none"
     }
 
 
-    /*
-     * Maximal drei Liquid-Gruppen.
-     */
     for (
       let i = 0;
       i < ACTIVE_COUNT;
@@ -813,10 +769,6 @@ preserveAspectRatio="none"
     }
 
 
-    // =======================================================================
-    // ACTIVE POINTS
-    // =======================================================================
-
     const activeDots =
       getActiveDots();
 
@@ -938,10 +890,6 @@ preserveAspectRatio="none"
 
         if (IS_MOBILE) {
 
-          /*
-           * 1 = direkt beim Finger
-           * 0 = am äusseren Rand.
-           */
           const fadeNormalized =
             Math.max(
               0,
@@ -954,13 +902,6 @@ preserveAspectRatio="none"
             );
 
 
-          /*
-           * Smoothstep.
-           *
-           * Dadurch bleibt das Zentrum
-           * länger hell und fällt erst
-           * weiter aussen weich ab.
-           */
           const fade =
             fadeNormalized *
             fadeNormalized *
@@ -984,11 +925,6 @@ preserveAspectRatio="none"
       }
       else {
 
-        /*
-         * Wenn kein Finger aktiv ist,
-         * dürfen alle Punkte wieder
-         * vollständig sichtbar sein.
-         */
         targetOpacity =
           1;
 
@@ -1126,10 +1062,6 @@ preserveAspectRatio="none"
             offset;
 
 
-          /*
-           * Aktive Punkte werden
-           * stärker als normale Punkte.
-           */
           targetRadius =
             BASE_R +
             (
@@ -1139,13 +1071,6 @@ preserveAspectRatio="none"
             pull;
 
 
-          /*
-           * Aktive Punkte sind immer
-           * vollständig weiss.
-           *
-           * Das erzeugt das gewünschte
-           * helle Zentrum.
-           */
           if (IS_MOBILE) {
 
             targetOpacity =
@@ -1218,10 +1143,6 @@ preserveAspectRatio="none"
         targetOpacity;
 
 
-      /*
-       * Helligkeit etwas schneller
-       * als die Grösse reagieren lassen.
-       */
       d.opacity +=
         (
           d.targetOpacity -
@@ -1474,14 +1395,6 @@ preserveAspectRatio="none"
       );
 
 
-      /*
-       * Desktop:
-       * immer 100 %.
-       *
-       * Mobile:
-       * abhängig von der Entfernung
-       * zum Finger.
-       */
       circle.setAttribute(
         'opacity',
         IS_MOBILE
@@ -1582,11 +1495,6 @@ preserveAspectRatio="none"
         );
 
 
-        /*
-         * Fusionspunkte bleiben weiss,
-         * damit das Mercury-Lichtzentrum
-         * kräftig bleibt.
-         */
         circle.setAttribute(
           'opacity',
           1
