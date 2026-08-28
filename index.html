@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+
 <html lang="de">
 <head>
 <meta charset="UTF-8">
@@ -29,6 +30,8 @@
   body {
     min-height: 100dvh;
     overscroll-behavior: none;
+    -webkit-user-select: none;
+    user-select: none;
   }
 
   #wrap {
@@ -36,7 +39,20 @@
     inset: clamp(20px, 4vw, 50px);
     background: #000;
     overflow: hidden;
+
+    /*
+     * Wichtig für iPhone/iPad:
+     * Browser darf die Touch-Bewegung nicht
+     * als Scroll-/Zoom-Geste interpretieren.
+     */
     touch-action: none;
+
+    /*
+     * Eigene Compositing-Layer können auf
+     * mobilen Geräten das Rendering stabilisieren.
+     */
+    transform: translateZ(0);
+    -webkit-transform: translateZ(0);
   }
 
   #svg {
@@ -46,86 +62,97 @@
     height: 100%;
     display: block;
     overflow: visible;
+
+    transform: translateZ(0);
+    -webkit-transform: translateZ(0);
+
+    /*
+     * Verhindert unnötige Browser-Optimierungen
+     * rund um Text-/SVG-Selektion.
+     */
+    pointer-events: none;
   }
 
-  /*
-   * Nur echte Fusionsgruppen bekommen den
-   * Mercury-Filter.
-   */
-  .liquid-group {
-    fill: #fff;
-    filter: url(#mercury);
-  }
-
-  /*
-   * Normale Punkte bleiben scharf.
-   */
   .normal-dot {
     fill: #fff;
   }
 
+  .liquid-group {
+    fill: #fff;
+    filter: url(#mercury);
+
+    /*
+     * GPU-Layer-Hinweis für WebKit.
+     */
+    transform: translateZ(0);
+    -webkit-transform: translateZ(0);
+  }
+
 </style>
+
 </head>
 
 <body>
 
 <div id="wrap">
 
-  <svg
-    id="svg"
-    xmlns="http://www.w3.org/2000/svg"
-    preserveAspectRatio="none"
+<svg
+id="svg"
+xmlns="http://www.w3.org/2000/svg"
+preserveAspectRatio="none"
+
+>
+
+```
+<defs>
+
+  <!-- ================================================================
+       MERCURY FILTER
+       ================================================================ -->
+
+  <filter
+    id="mercury"
+    x="-100%"
+    y="-100%"
+    width="300%"
+    height="300%"
+    color-interpolation-filters="sRGB"
   >
 
-    <defs>
+    <feGaussianBlur
+      in="SourceGraphic"
+      stdDeviation="4"
+      result="blur"
+    />
 
-      <!-- ================================================================
-           MERCURY FILTER
-           ================================================================ -->
+    <feColorMatrix
+      in="blur"
+      mode="matrix"
+      values="
+        1 0 0 0 0
+        0 1 0 0 0
+        0 0 1 0 0
+        0 0 0 26 -12
+      "
+      result="threshold"
+    />
 
-      <filter
-        id="mercury"
-        x="-100%"
-        y="-100%"
-        width="300%"
-        height="300%"
-        color-interpolation-filters="sRGB"
-      >
+    <feGaussianBlur
+      in="threshold"
+      stdDeviation="0.45"
+    />
 
-        <feGaussianBlur
-          in="SourceGraphic"
-          stdDeviation="4"
-          result="blur"
-        />
+  </filter>
 
-        <feColorMatrix
-          in="blur"
-          mode="matrix"
-          values="
-            1 0 0 0 0
-            0 1 0 0 0
-            0 0 1 0 0
-            0 0 0 26 -12
-          "
-          result="threshold"
-        />
+</defs>
 
-        <feGaussianBlur
-          in="threshold"
-          stdDeviation="0.45"
-        />
-
-      </filter>
-
-    </defs>
-
-    <g id="normalDots"></g>
-    <g id="liquidGroups"></g>
+<g id="normalDots"></g>
+<g id="liquidGroups"></g>
+```
 
   </svg>
 
 </div>
-
 
 <script>
 (() => {
@@ -150,6 +177,10 @@
     document.getElementById('liquidGroups');
 
 
+  const SVG_NS =
+    'http://www.w3.org/2000/svg';
+
+
   // =========================================================================
   // GRID
   // =========================================================================
@@ -160,16 +191,8 @@
   const MAX_SPACING = 56;
   const MIN_SPACING = 34;
 
-
-  /*
-   * Normale Punktgrösse.
-   */
   const BASE_R = 5.5;
 
-
-  /*
-   * Maximale Grösse eines aktiven Punktes.
-   */
   const MAX_R = 24;
 
 
@@ -177,23 +200,12 @@
   // CURSOR
   // =========================================================================
 
-  /*
-   * Bereich, in dem Punkte auf den Cursor reagieren.
-   */
   const CURSOR_RADIUS = 185;
 
-
-  /*
-   * Maximale Verschiebung der aktiven Punkte.
-   */
   const MAX_PULL = 25;
 
-
   /*
-   * HARTE OBERGRENZE:
-   *
-   * Maximal drei Punkte reagieren aktiv
-   * auf den Cursor.
+   * Niemals mehr als drei aktive Punkte.
    */
   const ACTIVE_COUNT = 3;
 
@@ -202,18 +214,8 @@
   // DISTANCE SCALE
   // =========================================================================
 
-  /*
-   * Ab dieser Entfernung beginnt der
-   * Punkt wieder kleiner zu werden.
-   */
   const DISTANT_RADIUS = 260;
 
-
-  /*
-   * Kleinste Grösse eines entfernten Punktes.
-   *
-   * 0.55 = 55 % der normalen Grösse.
-   */
   const DISTANT_MIN_SCALE = 0.55;
 
 
@@ -221,18 +223,8 @@
   // FUSION
   // =========================================================================
 
-  /*
-   * Zwei aktive Punkte müssen sich innerhalb
-   * dieses Abstandes befinden, damit sie
-   * miteinander verschmelzen.
-   */
   const FUSION_DISTANCE = 40;
 
-
-  /*
-   * Abstand, ab dem eine Fusion wieder
-   * auseinandergehen darf.
-   */
   const RELEASE_DISTANCE = 49;
 
 
@@ -241,6 +233,7 @@
   // =========================================================================
 
   const SPRING_K = 0.075;
+
   const DAMP = 0.80;
 
 
@@ -249,10 +242,42 @@
   // =========================================================================
 
   const ROW_DELAY = 0.055;
+
   const BOUNCE_AMP = 12;
+
   const DECAY = 4.2;
+
   const FREQ = 13;
+
   const COL_SPREAD = 0.65;
+
+
+  // =========================================================================
+  // PERFORMANCE
+  // =========================================================================
+
+  /*
+   * Wir vermeiden unnötige SVG-DOM-Operationen.
+   *
+   * Die Kreise werden nur EINMAL erzeugt.
+   * Danach werden nur noch ihre Attribute
+   * aktualisiert.
+   */
+
+  const normalElements = [];
+
+  const liquidElements = [];
+
+  const liquidGroupsCache = [];
+
+
+  /*
+   * Auf Touch-Geräten können 60fps bereits
+   * eine hohe Last darstellen.
+   *
+   * 60fps bleiben der Standard.
+   */
+  const MAX_FRAME_DT = 0.033;
 
 
   // =========================================================================
@@ -306,6 +331,160 @@
 
 
   // =========================================================================
+  // CREATE SVG CIRCLE
+  // =========================================================================
+
+  function createCircle(className) {
+
+    const circle =
+      document.createElementNS(
+        SVG_NS,
+        'circle'
+      );
+
+
+    if (className) {
+
+      circle.setAttribute(
+        'class',
+        className
+      );
+
+    }
+
+
+    return circle;
+
+  }
+
+
+  // =========================================================================
+  // CREATE STATIC SVG STRUCTURE
+  // =========================================================================
+
+  function createRenderObjects() {
+
+    /*
+     * Normale Punkte.
+     *
+     * Werden nur einmal erzeugt.
+     */
+    normalDots.replaceChildren();
+
+
+    for (
+      let i = 0;
+      i < COLS * ROWS;
+      i++
+    ) {
+
+      const circle =
+        createCircle(
+          'normal-dot'
+        );
+
+
+      normalDots.appendChild(
+        circle
+      );
+
+
+      normalElements.push(
+        circle
+      );
+
+    }
+
+
+    /*
+     * Maximal drei Punkte können
+     * gleichzeitig fusionieren.
+     *
+     * Deshalb benötigen wir auch nur
+     * drei Liquid-Gruppen.
+     */
+    for (
+      let i = 0;
+      i < ACTIVE_COUNT;
+      i++
+    ) {
+
+      const group =
+        document.createElementNS(
+          SVG_NS,
+          'g'
+        );
+
+
+      group.setAttribute(
+        'class',
+        'liquid-group'
+      );
+
+
+      const circles = [];
+
+
+      /*
+       * Maximal drei Kreise pro Gruppe.
+       */
+      for (
+        let j = 0;
+        j < ACTIVE_COUNT;
+        j++
+      ) {
+
+        const circle =
+          createCircle();
+
+
+        circle.setAttribute(
+          'fill',
+          '#fff'
+        );
+
+
+        /*
+         * Initial unsichtbar.
+         */
+        circle.style.display =
+          'none';
+
+
+        group.appendChild(
+          circle
+        );
+
+
+        circles.push(
+          circle
+        );
+
+      }
+
+
+      group.style.display =
+        'none';
+
+
+      liquidGroups.appendChild(
+        group
+      );
+
+
+      liquidGroupsCache.push({
+
+        group,
+        circles
+
+      });
+
+    }
+
+  }
+
+
+  // =========================================================================
   // BUILD GRID
   // =========================================================================
 
@@ -347,11 +526,13 @@
       ) {
 
         const bx =
-          ox + col * spacing;
+          ox +
+          col * spacing;
 
 
         const by =
-          oy + row * spacing;
+          oy +
+          row * spacing;
 
 
         dots.push({
@@ -395,7 +576,8 @@
 
       col:
         Math.floor(
-          Math.random() * COLS
+          Math.random() *
+          COLS
         ),
 
       time: t,
@@ -424,9 +606,6 @@
 
   function getActiveDots() {
 
-    /*
-     * Kein Cursor = keine aktiven Punkte.
-     */
     if (!mouse.on) {
 
       return [];
@@ -435,51 +614,132 @@
 
 
     /*
-     * Alle Punkte nach Entfernung zum
-     * Cursor sortieren.
-     */
-    const candidates =
-      dots
-        .map(d => ({
-
-          dot: d,
-
-          distance:
-            Math.hypot(
-              d.bx -
-              mouse.x,
-
-              d.by -
-              mouse.y
-            )
-
-        }))
-        .filter(
-          item =>
-            item.distance <=
-            CURSOR_RADIUS
-        )
-        .sort(
-          (a, b) =>
-            a.distance -
-            b.distance
-        );
-
-
-    /*
-     * HARTE OBERGRENZE:
+     * Statt map() + filter() + sort()
+     * suchen wir direkt die drei kleinsten
+     * Distanzen.
      *
-     * Genau maximal drei aktive Punkte.
+     * Bei nur 81 Punkten spart das zwar
+     * keine riesige Rechenzeit, aber deutlich
+     * weniger temporäre Objekte werden erzeugt.
      */
-    return candidates
-      .slice(
-        0,
-        ACTIVE_COUNT
-      )
-      .map(
-        item =>
-          item.dot
-      );
+
+    let first = null;
+    let second = null;
+    let third = null;
+
+    let firstDist = Infinity;
+    let secondDist = Infinity;
+    let thirdDist = Infinity;
+
+
+    for (const d of dots) {
+
+      const dx =
+        d.bx -
+        mouse.x;
+
+
+      const dy =
+        d.by -
+        mouse.y;
+
+
+      const distanceSq =
+        dx * dx +
+        dy * dy;
+
+
+      if (
+        distanceSq >
+        CURSOR_RADIUS *
+        CURSOR_RADIUS
+      ) {
+
+        continue;
+
+      }
+
+
+      if (
+        distanceSq <
+        firstDist
+      ) {
+
+        third =
+          second;
+
+        thirdDist =
+          secondDist;
+
+
+        second =
+          first;
+
+        secondDist =
+          firstDist;
+
+
+        first =
+          d;
+
+        firstDist =
+          distanceSq;
+
+      }
+
+      else if (
+        distanceSq <
+        secondDist
+      ) {
+
+        third =
+          second;
+
+        thirdDist =
+          secondDist;
+
+
+        second =
+          d;
+
+        secondDist =
+          distanceSq;
+
+      }
+
+      else if (
+        distanceSq <
+        thirdDist
+      ) {
+
+        third =
+          d;
+
+        thirdDist =
+          distanceSq;
+
+      }
+
+    }
+
+
+    const result = [];
+
+
+    if (first) {
+      result.push(first);
+    }
+
+    if (second) {
+      result.push(second);
+    }
+
+    if (third) {
+      result.push(third);
+    }
+
+
+    return result;
 
   }
 
@@ -493,18 +753,32 @@
     t += dt;
 
 
-    if (t >= nextDropAt) {
+    if (
+      t >= nextDropAt
+    ) {
 
       spawnDrop();
 
     }
 
 
-    drops =
-      drops.filter(
-        drop =>
-          (t - drop.time) < 2.5
-      );
+    /*
+     * Alte Waves entfernen.
+     */
+    if (
+      drops.length
+    ) {
+
+      drops =
+        drops.filter(
+          drop =>
+            (
+              t -
+              drop.time
+            ) < 2.5
+        );
+
+    }
 
 
     // =======================================================================
@@ -516,7 +790,7 @@
 
 
     /*
-     * Zuerst alle Punkte deaktivieren.
+     * Alle deaktivieren.
      */
     for (const d of dots) {
 
@@ -526,8 +800,7 @@
 
 
     /*
-     * Nur die drei nächsten Punkte
-     * werden aktiviert.
+     * Maximal drei aktivieren.
      */
     for (const d of activeDots) {
 
@@ -550,9 +823,6 @@
         d.by;
 
 
-      /*
-       * Ausgangsgrösse.
-       */
       let targetRadius =
         BASE_R;
 
@@ -561,20 +831,22 @@
       // DISTANCE SCALE
       // =====================================================================
 
-      /*
-       * Alle Punkte ausserhalb des aktiven
-       * Bereichs werden abhängig von ihrer
-       * Entfernung kleiner.
-       */
       if (mouse.on) {
 
-        const distance =
-          Math.hypot(
-            d.bx -
-            mouse.x,
+        const dx =
+          d.bx -
+          mouse.x;
 
-            d.by -
-            mouse.y
+
+        const dy =
+          d.by -
+          mouse.y;
+
+
+        const distance =
+          Math.sqrt(
+            dx * dx +
+            dy * dy
           );
 
 
@@ -583,22 +855,12 @@
           DISTANT_RADIUS
         ) {
 
-          /*
-           * 0 = weit entfernt
-           * 1 = direkt beim Cursor
-           */
           const normalized =
             1 -
             distance /
             DISTANT_RADIUS;
 
 
-          /*
-           * Smoothstep.
-           *
-           * Dadurch entsteht kein harter
-           * Grössensprung.
-           */
           const influence =
             normalized *
             normalized *
@@ -609,9 +871,6 @@
             );
 
 
-          /*
-           * 55 % bis 100 %.
-           */
           const scale =
             DISTANT_MIN_SCALE +
             (
@@ -628,10 +887,6 @@
         }
         else {
 
-          /*
-           * Maximale Entfernung:
-           * kleinste Punktgrösse.
-           */
           targetRadius =
             BASE_R *
             DISTANT_MIN_SCALE;
@@ -659,7 +914,9 @@
         if (
           localT <= 0
         ) {
+
           continue;
+
         }
 
 
@@ -672,7 +929,10 @@
 
         const lateral =
           Math.exp(
-            -(colDist ** 2) *
+            -(
+              colDist *
+              colDist
+            ) *
             COL_SPREAD
           );
 
@@ -680,7 +940,9 @@
         if (
           lateral < 0.01
         ) {
+
           continue;
+
         }
 
 
@@ -715,17 +977,23 @@
           d.by;
 
 
-        const dist =
-          Math.hypot(
-            dx,
-            dy
-          );
+        const distSq =
+          dx * dx +
+          dy * dy;
 
 
         if (
-          dist > 0.5 &&
-          dist < CURSOR_RADIUS
+          distSq > 0.25 &&
+          distSq <
+          CURSOR_RADIUS *
+          CURSOR_RADIUS
         ) {
+
+          const dist =
+            Math.sqrt(
+              distSq
+            );
+
 
           const normalized =
             1 -
@@ -733,9 +1001,6 @@
             CURSOR_RADIUS;
 
 
-          /*
-           * Weicher Sog.
-           */
           const pull =
             normalized *
             normalized;
@@ -762,13 +1027,6 @@
             offset;
 
 
-          /*
-           * Aktive Punkte werden deutlich
-           * grösser.
-           *
-           * Diese Grösse überschreibt
-           * die Distance Scale.
-           */
           targetRadius =
             BASE_R +
             (
@@ -845,16 +1103,25 @@
   function getFusionGroups() {
 
     const active =
-      dots.filter(
-        d =>
-          d.active
-      );
+      [];
 
 
     /*
-     * Weniger als zwei aktive Punkte
-     * können nicht fusionieren.
+     * Nur maximal drei Punkte.
      */
+    for (const d of dots) {
+
+      if (
+        d.active
+      ) {
+
+        active.push(d);
+
+      }
+
+    }
+
+
     if (
       active.length < 2
     ) {
@@ -877,13 +1144,12 @@
       if (
         used.has(start)
       ) {
+
         continue;
+
       }
 
 
-      /*
-       * Neue Gruppe.
-       */
       const group =
         [start];
 
@@ -893,11 +1159,6 @@
       );
 
 
-      /*
-       * Nur die beiden anderen aktiven
-       * Punkte können überhaupt Kandidaten
-       * sein.
-       */
       for (
         const candidate of active
       ) {
@@ -905,43 +1166,55 @@
         if (
           used.has(candidate)
         ) {
+
           continue;
+
         }
 
 
-        /*
-         * Prüfen, ob der Kandidat einen
-         * Punkt der Gruppe berührt.
-         */
-        const touches =
-          group.some(
-            member => {
-
-              const distance =
-                Math.hypot(
-
-                  member.x -
-                  candidate.x,
-
-                  member.y -
-                  candidate.y
-
-                );
+        let touches =
+          false;
 
 
-              return (
-                distance <=
-                FUSION_DISTANCE
-              );
+        for (
+          const member of group
+        ) {
 
-            }
-          );
+          const dx =
+            member.x -
+            candidate.x;
+
+
+          const dy =
+            member.y -
+            candidate.y;
+
+
+          const distanceSq =
+            dx * dx +
+            dy * dy;
+
+
+          if (
+            distanceSq <=
+            FUSION_DISTANCE *
+            FUSION_DISTANCE
+          ) {
+
+            touches =
+              true;
+
+            break;
+
+          }
+
+        }
 
 
         if (
           touches &&
           group.length <
-          3
+          ACTIVE_COUNT
         ) {
 
           group.push(
@@ -958,9 +1231,6 @@
       }
 
 
-      /*
-       * Nur echte Fusionen rendern.
-       */
       if (
         group.length >= 2
       ) {
@@ -985,10 +1255,6 @@
 
   function render() {
 
-    normalDots.innerHTML = '';
-    liquidGroups.innerHTML = '';
-
-
     const fusionGroups =
       getFusionGroups();
 
@@ -998,7 +1264,7 @@
 
 
     /*
-     * Fusionspunkte sammeln.
+     * Fusionspunkte markieren.
      */
     for (
       const group of fusionGroups
@@ -1025,33 +1291,41 @@
     // NORMAL DOTS
     // =======================================================================
 
+    /*
+     * KEIN innerHTML.
+     *
+     * KEINE neuen SVG-Elemente.
+     *
+     * Nur Attribute aktualisieren.
+     */
     for (
-      const d of dots
+      let i = 0;
+      i < dots.length;
+      i++
     ) {
 
-      /*
-       * Fusionspunkte werden separat
-       * gerendert.
-       */
+      const d =
+        dots[i];
+
+
+      const circle =
+        normalElements[i];
+
+
       if (
         fusedDots.has(d)
       ) {
+
+        circle.style.display =
+          'none';
 
         continue;
 
       }
 
 
-      const circle =
-        document.createElementNS(
-          'http://www.w3.org/2000/svg',
-          'circle'
-        );
-
-
-      circle.classList.add(
-        'normal-dot'
-      );
+      circle.style.display =
+        'block';
 
 
       circle.setAttribute(
@@ -1071,11 +1345,6 @@
         d.r
       );
 
-
-      normalDots.appendChild(
-        circle
-      );
-
     }
 
 
@@ -1083,36 +1352,78 @@
     // LIQUID GROUPS
     // =======================================================================
 
+    /*
+     * Alle drei möglichen Gruppen
+     * zunächst deaktivieren.
+     */
     for (
-      const group of fusionGroups
+      const cached of liquidGroupsCache
     ) {
 
-      const g =
-        document.createElementNS(
-          'http://www.w3.org/2000/svg',
-          'g'
-        );
+      cached.group.style.display =
+        'none';
 
 
-      g.classList.add(
-        'liquid-group'
-      );
-
-
-      /*
-       * Nur maximal drei Punkte
-       * befinden sich innerhalb
-       * derselben Liquid Group.
-       */
       for (
-        const d of group
+        const circle of cached.circles
       ) {
 
+        circle.style.display =
+          'none';
+
+      }
+
+    }
+
+
+    /*
+     * Danach nur tatsächlich benötigte
+     * Gruppen anzeigen.
+     */
+    for (
+      let groupIndex = 0;
+      groupIndex <
+      fusionGroups.length;
+      groupIndex++
+    ) {
+
+      const group =
+        fusionGroups[
+          groupIndex
+        ];
+
+
+      const cached =
+        liquidGroupsCache[
+          groupIndex
+        ];
+
+
+      if (!cached) {
+        continue;
+      }
+
+
+      cached.group.style.display =
+        'block';
+
+
+      for (
+        let i = 0;
+        i < group.length;
+        i++
+      ) {
+
+        const d =
+          group[i];
+
+
         const circle =
-          document.createElementNS(
-            'http://www.w3.org/2000/svg',
-            'circle'
-          );
+          cached.circles[i];
+
+
+        circle.style.display =
+          'block';
 
 
         circle.setAttribute(
@@ -1132,23 +1443,7 @@
           d.r
         );
 
-
-        circle.setAttribute(
-          'fill',
-          '#fff'
-        );
-
-
-        g.appendChild(
-          circle
-        );
-
       }
-
-
-      liquidGroups.appendChild(
-        g
-      );
 
     }
 
@@ -1159,7 +1454,10 @@
   // POINTER
   // =========================================================================
 
-  function updatePointer(x, y) {
+  function updatePointer(
+    x,
+    y
+  ) {
 
     const rect =
       wrap.getBoundingClientRect();
@@ -1181,12 +1479,17 @@
   }
 
 
-  // =========================================================================
-  // MOUSE
-  // =========================================================================
+  /*
+   * Pointer Events funktionieren auf
+   * modernen iPhones/iPads und Desktop
+   * gleichermaßen.
+   *
+   * Dadurch brauchen wir keine getrennten
+   * mousemove / touchmove Systeme mehr.
+   */
 
-  window.addEventListener(
-    'mousemove',
+  wrap.addEventListener(
+    'pointermove',
     e => {
 
       updatePointer(
@@ -1201,97 +1504,72 @@
   );
 
 
+  wrap.addEventListener(
+    'pointerdown',
+    e => {
+
+      updatePointer(
+        e.clientX,
+        e.clientY
+      );
+
+    },
+    {
+      passive: true
+    }
+  );
+
+
+  wrap.addEventListener(
+    'pointerleave',
+    () => {
+
+      mouse.on =
+        false;
+
+    },
+    {
+      passive: true
+    }
+  );
+
+
+  wrap.addEventListener(
+    'pointercancel',
+    () => {
+
+      mouse.on =
+        false;
+
+    },
+    {
+      passive: true
+    }
+  );
+
+
+  /*
+   * Wenn ein Touch ausserhalb des
+   * Containers endet.
+   */
   window.addEventListener(
-    'mouseleave',
+    'pointerup',
     () => {
 
-      mouse.on =
-        false;
+      /*
+       * Bei Maus bleibt der Cursor aktiv.
+       * Bei Touch wird er deaktiviert.
+       */
+      if (
+        window.matchMedia(
+          '(pointer: coarse)'
+        ).matches
+      ) {
 
-    },
-    {
-      passive: true
-    }
-  );
+        mouse.on =
+          false;
 
-
-  // =========================================================================
-  // TOUCH
-  // =========================================================================
-
-  wrap.addEventListener(
-    'touchstart',
-    e => {
-
-      const touch =
-        e.touches[0];
-
-
-      if (!touch) {
-        return;
       }
-
-
-      updatePointer(
-        touch.clientX,
-        touch.clientY
-      );
-
-    },
-    {
-      passive: true
-    }
-  );
-
-
-  wrap.addEventListener(
-    'touchmove',
-    e => {
-
-      e.preventDefault();
-
-
-      const touch =
-        e.touches[0];
-
-
-      if (!touch) {
-        return;
-      }
-
-
-      updatePointer(
-        touch.clientX,
-        touch.clientY
-      );
-
-    },
-    {
-      passive: false
-    }
-  );
-
-
-  wrap.addEventListener(
-    'touchend',
-    () => {
-
-      mouse.on =
-        false;
-
-    },
-    {
-      passive: true
-    }
-  );
-
-
-  wrap.addEventListener(
-    'touchcancel',
-    () => {
-
-      mouse.on =
-        false;
 
     },
     {
@@ -1319,8 +1597,28 @@
       resizeTimer =
         setTimeout(
           resize,
-          100
+          80
         );
+
+    },
+    {
+      passive: true
+    }
+  );
+
+
+  /*
+   * iOS Safari kann bei Orientation Change
+   * eine andere Viewport-Höhe liefern.
+   */
+  window.addEventListener(
+    'orientationchange',
+    () => {
+
+      setTimeout(
+        resize,
+        120
+      );
 
     },
     {
@@ -1362,15 +1660,12 @@
 
     const dt =
       Math.min(
-
         (
           now -
           lastTime
         ) /
         1000,
-
-        0.033
-
+        MAX_FRAME_DT
       );
 
 
@@ -1394,12 +1689,15 @@
   // INIT
   // =========================================================================
 
+  createRenderObjects();
+
   resize();
 
 
   requestAnimationFrame(
     loop
   );
+
 
 })();
 </script>
