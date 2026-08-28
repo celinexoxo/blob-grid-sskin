@@ -178,10 +178,15 @@ preserveAspectRatio="none"
 
 
   /*
-   * Ruhegrösse:
+   * RUHEGRÖSSE
    *
-   * Desktop: 4.5px
-   * Mobile:  3.8px
+   * Desktop:
+   * vorher 5.5px
+   * jetzt 4.5px
+   *
+   * Mobile:
+   * vorher 4.5px
+   * jetzt 3.8px
    */
   const BASE_R =
     IS_MOBILE
@@ -190,7 +195,8 @@ preserveAspectRatio="none"
 
 
   /*
-   * Maximale Grösse:
+   * Maximale Grösse aktiver Punkte
+   * bleibt bewusst erhalten.
    */
   const MAX_R =
     IS_MOBILE
@@ -213,18 +219,15 @@ preserveAspectRatio="none"
 
 
   // =========================================================================
-  // MOBILE DISTANCE SCALE
+  // DISTANCE SCALE
   // =========================================================================
 
-  /*
-   * Nur Mobile verwendet weiterhin
-   * die zusätzliche Verkleinerung
-   * der äusseren Punkte.
-   */
   const DISTANT_RADIUS = 260;
 
   const DISTANT_MIN_SCALE =
-    0.48;
+    IS_MOBILE
+      ? 0.48
+      : 0.55;
 
 
   // =========================================================================
@@ -798,15 +801,6 @@ preserveAspectRatio="none"
         d.by;
 
 
-      /*
-       * WICHTIG:
-       *
-       * Desktop startet IMMER bei der
-       * normalen Ruhegrösse.
-       *
-       * Mobile verwendet weiterhin
-       * die Distanz-Skalierung.
-       */
       let targetRadius =
         BASE_R;
 
@@ -816,13 +810,10 @@ preserveAspectRatio="none"
 
 
       // =====================================================================
-      // DISTANCE SCALE
+      // DISTANCE SCALE + MOBILE FADE
       // =====================================================================
 
-      if (
-        mouse.on &&
-        IS_MOBILE
-      ) {
+      if (mouse.on) {
 
         const dx =
           d.bx -
@@ -834,12 +825,20 @@ preserveAspectRatio="none"
           mouse.y;
 
 
+        const distanceSq =
+          dx * dx +
+          dy * dy;
+
+
         const distance =
-          Math.hypot(
-            dx,
-            dy
+          Math.sqrt(
+            distanceSq
           );
 
+
+        // ===================================================================
+        // SIZE
+        // ===================================================================
 
         if (
           distance <
@@ -884,64 +883,50 @@ preserveAspectRatio="none"
 
         }
 
-      }
+
+        // ===================================================================
+        // MOBILE OPACITY
+        // ===================================================================
+
+        if (IS_MOBILE) {
+
+          const fadeNormalized =
+            Math.max(
+              0,
+              Math.min(
+                1,
+                1 -
+                distance /
+                MOBILE_FADE_RADIUS
+              )
+            );
 
 
-      // =====================================================================
-      // MOBILE OPACITY
-      // =====================================================================
-
-      if (
-        mouse.on &&
-        IS_MOBILE
-      ) {
-
-        const dx =
-          d.bx -
-          mouse.x;
+          const fade =
+            fadeNormalized *
+            fadeNormalized *
+            (
+              3 -
+              2 *
+              fadeNormalized
+            );
 
 
-        const dy =
-          d.by -
-          mouse.y;
-
-
-        const distance =
-          Math.hypot(
-            dx,
-            dy
-          );
-
-
-        const fadeNormalized =
-          Math.max(
-            0,
-            Math.min(
-              1,
+          targetOpacity =
+            MOBILE_MIN_OPACITY +
+            (
               1 -
-              distance /
-              MOBILE_FADE_RADIUS
-            )
-          );
+              MOBILE_MIN_OPACITY
+            ) *
+            fade;
 
+        }
 
-        const fade =
-          fadeNormalized *
-          fadeNormalized *
-          (
-            3 -
-            2 *
-            fadeNormalized
-          );
-
+      }
+      else {
 
         targetOpacity =
-          MOBILE_MIN_OPACITY +
-          (
-            1 -
-            MOBILE_MIN_OPACITY
-          ) *
-          fade;
+          1;
 
       }
 
@@ -1077,13 +1062,6 @@ preserveAspectRatio="none"
             offset;
 
 
-          /*
-           * Aktive Punkte wachsen.
-           *
-           * Sobald sie nicht mehr aktiv sind,
-           * fällt targetRadius automatisch
-           * wieder auf BASE_R zurück.
-           */
           targetRadius =
             BASE_R +
             (
@@ -1093,10 +1071,6 @@ preserveAspectRatio="none"
             pull;
 
 
-          /*
-           * Auf Mobile bleibt das Zentrum
-           * vollständig weiss.
-           */
           if (IS_MOBILE) {
 
             targetOpacity =
@@ -1759,6 +1733,7 @@ preserveAspectRatio="none"
   requestAnimationFrame(
     loop
   );
+
 
 })();
 </script>
