@@ -1,719 +1,1408 @@
 <!DOCTYPE html>
 <html lang="de">
 <head>
-  <meta charset="UTF-8">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 
-  <meta
-    name="viewport"
-    content="width=device-width, initial-scale=1.0, viewport-fit=cover"
-  >
+<title>Home — SSKIN</title>
 
-  <link rel="icon" type="image/svg+xml" href="favicon.svg">
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@300&display=swap" rel="stylesheet">
 
-  <title>Home — SSKIN</title>
-  
-  <style>
-    * {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
-    }
+<style>
 
-    html,
-    body {
-      width: 100%;
-      height: 100%;
-      overflow: hidden;
-      background: #000;
-    }
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+  }
 
-    body {
-      position: fixed;
-      inset: 0;
-      touch-action: none;
-    }
+  html,
+  body {
+    width: 100%;
+    height: 100%;
+    background: #000;
+    overflow: hidden;
+  }
 
-    #wrap {
-      position: fixed;
-      inset: 50px;
-      background: #000;
-    }
+  body {
+    min-height: 100dvh;
+    overscroll-behavior: none;
+  }
 
-    #cv {
-      position: absolute;
-      inset: 0;
+  #wrap {
+    position: fixed;
+    inset: clamp(20px, 4vw, 50px);
+    background: #000;
+    overflow: hidden;
+    touch-action: none;
+  }
 
-      width: 100%;
-      height: 100%;
+  #svg {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    display: block;
+    overflow: visible;
+  }
 
-      display: block;
+  /*
+   * Nur echte Fusionsgruppen bekommen den
+   * Mercury-Filter.
+   */
+  .liquid-group {
+    fill: #fff;
+    filter: url(#mercury);
+  }
 
-      image-rendering: auto;
-    }
+  /*
+   * Normale Punkte bleiben scharf.
+   */
+  .normal-dot {
+    fill: #fff;
+  }
 
-    @media (max-width: 600px) {
-      #wrap {
-        inset: 20px;
-      }
-    }
-  </style>
+</style>
 </head>
 
 <body>
 
-  <div id="wrap">
-    <canvas id="cv"></canvas>
-  </div>
+<div id="wrap">
 
+  <svg
+    id="svg"
+    xmlns="http://www.w3.org/2000/svg"
+    preserveAspectRatio="none"
+  >
 
-  <script>
-    (() => {
+    <defs>
 
-      // ==================================================
-      // CANVAS
-      // ==================================================
+      <!-- ================================================================
+           MERCURY FILTER
+           ================================================================ -->
 
-      const cv =
-        document.getElementById('cv');
+      <filter
+        id="mercury"
+        x="-100%"
+        y="-100%"
+        width="300%"
+        height="300%"
+        color-interpolation-filters="sRGB"
+      >
 
-      const ctx =
-        cv.getContext('2d', {
-          alpha: false
-        });
+        <feGaussianBlur
+          in="SourceGraphic"
+          stdDeviation="4"
+          result="blur"
+        />
 
+        <feColorMatrix
+          in="blur"
+          mode="matrix"
+          values="
+            1 0 0 0 0
+            0 1 0 0 0
+            0 0 1 0 0
+            0 0 0 26 -12
+          "
+          result="threshold"
+        />
 
-      // ==================================================
-      // GRID
-      // ==================================================
+        <feGaussianBlur
+          in="threshold"
+          stdDeviation="0.45"
+        />
 
-      const COLS = 9;
-      const ROWS = 9;
+      </filter>
 
-      const DESKTOP_SPACING = 56;
-      const MOBILE_SPACING = 38;
+    </defs>
 
-      const BASE_R = 3.2;
+    <g id="normalDots"></g>
+    <g id="liquidGroups"></g>
 
-      const MAX_R = 15;
+  </svg>
 
-      const POINTER_RADIUS = 115;
+</div>
 
 
-      // ==================================================
-      // PHYSICS
-      // ==================================================
+<script>
+(() => {
 
-      const SPRING_K = 0.09;
+  'use strict';
 
-      const DAMP = 0.78;
 
-      const GRAVITY_R = 145;
+  // =========================================================================
+  // DOM
+  // =========================================================================
 
-      const GRAVITY_MAX = 17;
+  const wrap =
+    document.getElementById('wrap');
 
+  const svg =
+    document.getElementById('svg');
 
-      // ==================================================
-      // WAVE
-      // ==================================================
+  const normalDots =
+    document.getElementById('normalDots');
 
-      const ROW_DELAY = 0.055;
+  const liquidGroups =
+    document.getElementById('liquidGroups');
 
-      const BOUNCE_AMP = 10;
 
-      const DECAY = 4.2;
+  // =========================================================================
+  // GRID
+  // =========================================================================
 
-      const FREQ = 13.0;
+  const COLS = 9;
+  const ROWS = 9;
 
-      const COL_SPREAD = 0.65;
+  const MAX_SPACING = 56;
+  const MIN_SPACING = 34;
 
 
-      // ==================================================
-      // STATE
-      // ==================================================
+  /*
+   * Normale Punktgrösse.
+   */
+  const BASE_R = 5.5;
 
-      let W = 0;
-      let H = 0;
 
-      let DPR = 1;
+  /*
+   * Maximale Grösse eines aktiven Punktes.
+   */
+  const MAX_R = 24;
 
-      let SPACING =
-        DESKTOP_SPACING;
 
-      let dots = [];
+  // =========================================================================
+  // CURSOR
+  // =========================================================================
 
-      let t = 0;
+  /*
+   * Bereich, in dem Punkte auf den Cursor reagieren.
+   */
+  const CURSOR_RADIUS = 185;
 
-      let lastTime =
-        performance.now();
 
-      let drops = [];
+  /*
+   * Maximale Verschiebung der aktiven Punkte.
+   */
+  const MAX_PULL = 25;
 
-      let nextDropAt = 0.6;
 
+  /*
+   * HARTE OBERGRENZE:
+   *
+   * Maximal drei Punkte reagieren aktiv
+   * auf den Cursor.
+   */
+  const ACTIVE_COUNT = 3;
 
-      const pointer = {
-        x: -9999,
-        y: -9999,
-        active: false
-      };
 
+  // =========================================================================
+  // DISTANCE SCALE
+  // =========================================================================
 
-      // ==================================================
-      // RESIZE
-      // ==================================================
+  /*
+   * Ab dieser Entfernung beginnt der
+   * Punkt wieder kleiner zu werden.
+   */
+  const DISTANT_RADIUS = 260;
 
-      function resize() {
 
-        const rect =
-          cv.getBoundingClientRect();
+  /*
+   * Kleinste Grösse eines entfernten Punktes.
+   *
+   * 0.55 = 55 % der normalen Grösse.
+   */
+  const DISTANT_MIN_SCALE = 0.55;
 
-        W = rect.width;
-        H = rect.height;
 
-        DPR =
-          Math.min(
-            window.devicePixelRatio || 1,
-            3
-          );
+  // =========================================================================
+  // FUSION
+  // =========================================================================
 
-        cv.width =
-          Math.round(W * DPR);
+  /*
+   * Zwei aktive Punkte müssen sich innerhalb
+   * dieses Abstandes befinden, damit sie
+   * miteinander verschmelzen.
+   */
+  const FUSION_DISTANCE = 40;
 
-        cv.height =
-          Math.round(H * DPR);
 
-        ctx.setTransform(
-          DPR,
-          0,
-          0,
-          DPR,
-          0,
-          0
-        );
+  /*
+   * Abstand, ab dem eine Fusion wieder
+   * auseinandergehen darf.
+   */
+  const RELEASE_DISTANCE = 49;
 
-        SPACING =
-          W <= 600
-            ? MOBILE_SPACING
-            : DESKTOP_SPACING;
 
-        buildGrid();
-      }
+  // =========================================================================
+  // PHYSICS
+  // =========================================================================
 
+  const SPRING_K = 0.075;
+  const DAMP = 0.80;
 
-      // ==================================================
-      // GRID
-      // ==================================================
 
-      function buildGrid() {
+  // =========================================================================
+  // DROP WAVE
+  // =========================================================================
 
-        const ox =
-          (W -
-            (COLS - 1) * SPACING) / 2;
+  const ROW_DELAY = 0.055;
+  const BOUNCE_AMP = 12;
+  const DECAY = 4.2;
+  const FREQ = 13;
+  const COL_SPREAD = 0.65;
 
-        const oy =
-          (H -
-            (ROWS - 1) * SPACING) / 2;
 
-        dots = [];
+  // =========================================================================
+  // STATE
+  // =========================================================================
 
-        for (
-          let row = 0;
-          row < ROWS;
-          row++
-        ) {
+  let W = 0;
+  let H = 0;
 
-          for (
-            let col = 0;
-            col < COLS;
-            col++
-          ) {
+  let dots = [];
 
-            const bx =
-              ox +
-              col * SPACING;
+  let drops = [];
 
-            const by =
-              oy +
-              row * SPACING;
+  let t = 0;
 
-            dots.push({
+  let lastTime =
+    performance.now();
 
-              bx,
-              by,
+  let nextDropAt = 0.6;
 
-              x: bx,
-              y: by,
 
-              vx: 0,
-              vy: 0,
+  const mouse = {
 
-              r: BASE_R,
+    x: -9999,
+    y: -9999,
 
-              col,
-              row
+    on: false
 
-            });
-          }
-        }
-      }
+  };
 
 
-      // ==================================================
-      // WAVE
-      // ==================================================
+  // =========================================================================
+  // GRID SPACING
+  // =========================================================================
 
-      function spawnDrop() {
+  function getSpacing() {
 
-        drops.push({
+    const availableWidth =
+      W - 60;
 
-          col:
-            Math.floor(
-              Math.random() * COLS
-            ),
 
-          time: t,
+    return Math.min(
+      MAX_SPACING,
+      Math.max(
+        MIN_SPACING,
+        availableWidth / (COLS - 1)
+      )
+    );
 
-          amp:
-            BOUNCE_AMP *
-            (
-              0.7 +
-              Math.random() * 0.55
-            )
+  }
 
-        });
 
-        nextDropAt =
-          t +
-          1.8 +
-          Math.random() * 2.4;
-      }
+  // =========================================================================
+  // BUILD GRID
+  // =========================================================================
 
+  function buildGrid() {
 
-      // ==================================================
-      // UPDATE
-      // ==================================================
+    const spacing =
+      getSpacing();
 
-      function update(delta) {
 
-        const dt =
-          Math.min(delta, 32) /
-          16.6667;
+    const gridWidth =
+      (COLS - 1) * spacing;
 
-        t +=
-          0.016 * dt;
 
+    const gridHeight =
+      (ROWS - 1) * spacing;
 
-        // ----------------------------------------------
-        // Automatische Welle
-        // ----------------------------------------------
 
-        if (t >= nextDropAt) {
-          spawnDrop();
-        }
+    const ox =
+      (W - gridWidth) / 2;
 
-        drops =
-          drops.filter(
-            drop =>
-              (t - drop.time) < 2.5
-          );
 
+    const oy =
+      (H - gridHeight) / 2;
 
-        // ----------------------------------------------
-        // Punkte
-        // ----------------------------------------------
 
-        for (const dot of dots) {
+    dots = [];
 
-          let tx = dot.bx;
-          let ty = dot.by;
 
-          let targetRadius =
-            BASE_R;
+    for (
+      let row = 0;
+      row < ROWS;
+      row++
+    ) {
 
-
-          // ============================================
-          // WAVE
-          // ============================================
-
-          for (const drop of drops) {
-
-            const localT =
-              (t - drop.time) -
-              dot.row * ROW_DELAY;
-
-            if (localT <= 0) {
-              continue;
-            }
-
-            const colDist =
-              Math.abs(
-                dot.col -
-                drop.col
-              );
-
-            const lateral =
-              Math.exp(
-                -(colDist ** 2) *
-                COL_SPREAD
-              );
-
-            if (lateral < 0.01) {
-              continue;
-            }
-
-            ty +=
-              drop.amp *
-              Math.exp(
-                -DECAY *
-                localT
-              ) *
-              Math.sin(
-                FREQ *
-                localT
-              ) *
-              lateral;
-          }
-
-
-          // ============================================
-          // POINTER
-          // ============================================
-
-          if (pointer.active) {
-
-            const dx =
-              pointer.x -
-              dot.bx;
-
-            const dy =
-              pointer.y -
-              dot.by;
-
-            const distance =
-              Math.hypot(
-                dx,
-                dy
-              );
-
-            if (
-              distance <
-              POINTER_RADIUS
-            ) {
-
-              const influence =
-                Math.max(
-                  0,
-                  1 -
-                  distance /
-                  POINTER_RADIUS
-                );
-
-              const strength =
-                influence *
-                influence *
-                influence;
-
-              targetRadius =
-                BASE_R +
-                (
-                  MAX_R -
-                  BASE_R
-                ) *
-                strength;
-
-
-              if (distance > 0.001) {
-
-                const movement =
-                  strength *
-                  GRAVITY_MAX;
-
-                tx +=
-                  (
-                    dx /
-                    distance
-                  ) *
-                  movement;
-
-                ty +=
-                  (
-                    dy /
-                    distance
-                  ) *
-                  movement;
-              }
-            }
-          }
-
-
-          // ============================================
-          // SPRING
-          // ============================================
-
-          dot.vx +=
-            (
-              tx -
-              dot.x
-            ) *
-            SPRING_K *
-            dt;
-
-          dot.vy +=
-            (
-              ty -
-              dot.y
-            ) *
-            SPRING_K *
-            dt;
-
-          dot.vx *=
-            Math.pow(
-              DAMP,
-              dt
-            );
-
-          dot.vy *=
-            Math.pow(
-              DAMP,
-              dt
-            );
-
-          dot.x +=
-            dot.vx *
-            dt;
-
-          dot.y +=
-            dot.vy *
-            dt;
-
-
-          // ============================================
-          // RADIUS SMOOTHING
-          // ============================================
-
-          dot.r +=
-            (
-              targetRadius -
-              dot.r
-            ) *
-            0.16 *
-            dt;
-        }
-      }
-
-
-      // ==================================================
-      // DRAW
-      // ==================================================
-
-      function draw() {
-
-        ctx.fillStyle =
-          '#000';
-
-        ctx.fillRect(
-          0,
-          0,
-          W,
-          H
-        );
-
-        ctx.fillStyle =
-          '#fff';
-
-        for (const dot of dots) {
-
-          ctx.beginPath();
-
-          ctx.arc(
-            dot.x,
-            dot.y,
-            dot.r,
-            0,
-            Math.PI * 2
-          );
-
-          ctx.fill();
-        }
-      }
-
-
-      // ==================================================
-      // POINTER
-      // ==================================================
-
-      function setPointer(
-        clientX,
-        clientY
+      for (
+        let col = 0;
+        col < COLS;
+        col++
       ) {
 
-        const rect =
-          cv.getBoundingClientRect();
+        const bx =
+          ox + col * spacing;
 
-        pointer.x =
-          clientX -
-          rect.left;
 
-        pointer.y =
-          clientY -
-          rect.top;
+        const by =
+          oy + row * spacing;
 
-        pointer.active =
-          true;
+
+        dots.push({
+
+          bx,
+          by,
+
+          x: bx,
+          y: by,
+
+          vx: 0,
+          vy: 0,
+
+          r: BASE_R,
+
+          targetR: BASE_R,
+
+          col,
+          row,
+
+          active: 0,
+
+          fused: false
+
+        });
+
       }
 
+    }
 
-      // ==================================================
-      // MOUSE
-      // ==================================================
-
-      window.addEventListener(
-        'mousemove',
-        event => {
-
-          setPointer(
-            event.clientX,
-            event.clientY
-          );
-
-        },
-        {
-          passive: true
-        }
-      );
+  }
 
 
-      window.addEventListener(
-        'mouseleave',
-        () => {
+  // =========================================================================
+  // DROP
+  // =========================================================================
 
-          pointer.active =
-            false;
+  function spawnDrop() {
 
-        }
-      );
+    drops.push({
 
+      col:
+        Math.floor(
+          Math.random() * COLS
+        ),
 
-      // ==================================================
-      // TOUCH
-      // ==================================================
+      time: t,
 
-      window.addEventListener(
-        'touchstart',
-        event => {
+      amp:
+        BOUNCE_AMP *
+        (
+          0.7 +
+          Math.random() * 0.55
+        )
 
-          if (
-            event.touches.length
-          ) {
-
-            setPointer(
-              event.touches[0].clientX,
-              event.touches[0].clientY
-            );
-
-          }
-
-        },
-        {
-          passive: true
-        }
-      );
+    });
 
 
-      window.addEventListener(
-        'touchmove',
-        event => {
+    nextDropAt =
+      t +
+      1.8 +
+      Math.random() * 2.4;
 
-          if (
-            event.touches.length
-          ) {
-
-            setPointer(
-              event.touches[0].clientX,
-              event.touches[0].clientY
-            );
-
-          }
-
-        },
-        {
-          passive: true
-        }
-      );
+  }
 
 
-      window.addEventListener(
-        'touchend',
-        () => {
+  // =========================================================================
+  // FIND THREE CLOSEST POINTS
+  // =========================================================================
 
-          pointer.active =
-            false;
+  function getActiveDots() {
 
-        },
-        {
-          passive: true
-        }
-      );
+    /*
+     * Kein Cursor = keine aktiven Punkte.
+     */
+    if (!mouse.on) {
 
+      return [];
 
-      // ==================================================
-      // RESIZE
-      // ==================================================
-
-      window.addEventListener(
-        'resize',
-        resize
-      );
+    }
 
 
-      window.addEventListener(
-        'orientationchange',
-        () => {
+    /*
+     * Alle Punkte nach Entfernung zum
+     * Cursor sortieren.
+     */
+    const candidates =
+      dots
+        .map(d => ({
 
-          setTimeout(
-            resize,
-            100
-          );
+          dot: d,
 
-        }
-      );
+          distance:
+            Math.hypot(
+              d.bx -
+              mouse.x,
 
+              d.by -
+              mouse.y
+            )
 
-      // ==================================================
-      // INITIALISIERUNG
-      // ==================================================
-
-      resize();
-
-
-      // ==================================================
-      // ANIMATION
-      // ==================================================
-
-      function animate(now) {
-
-        const delta =
-          now -
-          lastTime;
-
-        lastTime =
-          now;
-
-        update(delta);
-
-        draw();
-
-        requestAnimationFrame(
-          animate
+        }))
+        .filter(
+          item =>
+            item.distance <=
+            CURSOR_RADIUS
+        )
+        .sort(
+          (a, b) =>
+            a.distance -
+            b.distance
         );
-      }
 
-      requestAnimationFrame(
-        animate
+
+    /*
+     * HARTE OBERGRENZE:
+     *
+     * Genau maximal drei aktive Punkte.
+     */
+    return candidates
+      .slice(
+        0,
+        ACTIVE_COUNT
+      )
+      .map(
+        item =>
+          item.dot
       );
 
-    })();
-  </script>
+  }
+
+
+  // =========================================================================
+  // PHYSICS
+  // =========================================================================
+
+  function tick(dt) {
+
+    t += dt;
+
+
+    if (t >= nextDropAt) {
+
+      spawnDrop();
+
+    }
+
+
+    drops =
+      drops.filter(
+        drop =>
+          (t - drop.time) < 2.5
+      );
+
+
+    // =======================================================================
+    // ACTIVE POINTS
+    // =======================================================================
+
+    const activeDots =
+      getActiveDots();
+
+
+    /*
+     * Zuerst alle Punkte deaktivieren.
+     */
+    for (const d of dots) {
+
+      d.active = 0;
+
+    }
+
+
+    /*
+     * Nur die drei nächsten Punkte
+     * werden aktiviert.
+     */
+    for (const d of activeDots) {
+
+      d.active = 1;
+
+    }
+
+
+    // =======================================================================
+    // INDIVIDUAL PHYSICS
+    // =======================================================================
+
+    for (const d of dots) {
+
+      let tx =
+        d.bx;
+
+
+      let ty =
+        d.by;
+
+
+      /*
+       * Ausgangsgrösse.
+       */
+      let targetRadius =
+        BASE_R;
+
+
+      // =====================================================================
+      // DISTANCE SCALE
+      // =====================================================================
+
+      /*
+       * Alle Punkte ausserhalb des aktiven
+       * Bereichs werden abhängig von ihrer
+       * Entfernung kleiner.
+       */
+      if (mouse.on) {
+
+        const distance =
+          Math.hypot(
+            d.bx -
+            mouse.x,
+
+            d.by -
+            mouse.y
+          );
+
+
+        if (
+          distance <
+          DISTANT_RADIUS
+        ) {
+
+          /*
+           * 0 = weit entfernt
+           * 1 = direkt beim Cursor
+           */
+          const normalized =
+            1 -
+            distance /
+            DISTANT_RADIUS;
+
+
+          /*
+           * Smoothstep.
+           *
+           * Dadurch entsteht kein harter
+           * Grössensprung.
+           */
+          const influence =
+            normalized *
+            normalized *
+            (
+              3 -
+              2 *
+              normalized
+            );
+
+
+          /*
+           * 55 % bis 100 %.
+           */
+          const scale =
+            DISTANT_MIN_SCALE +
+            (
+              1 -
+              DISTANT_MIN_SCALE
+            ) *
+            influence;
+
+
+          targetRadius =
+            BASE_R *
+            scale;
+
+        }
+        else {
+
+          /*
+           * Maximale Entfernung:
+           * kleinste Punktgrösse.
+           */
+          targetRadius =
+            BASE_R *
+            DISTANT_MIN_SCALE;
+
+        }
+
+      }
+
+
+      // =====================================================================
+      // DROP WAVE
+      // =====================================================================
+
+      for (const drop of drops) {
+
+        const localT =
+          (
+            t -
+            drop.time
+          ) -
+          d.row *
+          ROW_DELAY;
+
+
+        if (
+          localT <= 0
+        ) {
+          continue;
+        }
+
+
+        const colDist =
+          Math.abs(
+            d.col -
+            drop.col
+          );
+
+
+        const lateral =
+          Math.exp(
+            -(colDist ** 2) *
+            COL_SPREAD
+          );
+
+
+        if (
+          lateral < 0.01
+        ) {
+          continue;
+        }
+
+
+        ty +=
+          drop.amp *
+          Math.exp(
+            -DECAY *
+            localT
+          ) *
+          Math.sin(
+            FREQ *
+            localT
+          ) *
+          lateral;
+
+      }
+
+
+      // =====================================================================
+      // CURSOR
+      // =====================================================================
+
+      if (d.active) {
+
+        const dx =
+          mouse.x -
+          d.bx;
+
+
+        const dy =
+          mouse.y -
+          d.by;
+
+
+        const dist =
+          Math.hypot(
+            dx,
+            dy
+          );
+
+
+        if (
+          dist > 0.5 &&
+          dist < CURSOR_RADIUS
+        ) {
+
+          const normalized =
+            1 -
+            dist /
+            CURSOR_RADIUS;
+
+
+          /*
+           * Weicher Sog.
+           */
+          const pull =
+            normalized *
+            normalized;
+
+
+          const offset =
+            pull *
+            MAX_PULL;
+
+
+          tx +=
+            (
+              dx /
+              dist
+            ) *
+            offset;
+
+
+          ty +=
+            (
+              dy /
+              dist
+            ) *
+            offset;
+
+
+          /*
+           * Aktive Punkte werden deutlich
+           * grösser.
+           *
+           * Diese Grösse überschreibt
+           * die Distance Scale.
+           */
+          targetRadius =
+            BASE_R +
+            (
+              MAX_R -
+              BASE_R
+            ) *
+            pull;
+
+        }
+
+      }
+
+
+      // =====================================================================
+      // SPRING
+      // =====================================================================
+
+      d.vx +=
+        (
+          tx -
+          d.x
+        ) *
+        SPRING_K;
+
+
+      d.vy +=
+        (
+          ty -
+          d.y
+        ) *
+        SPRING_K;
+
+
+      d.vx *=
+        DAMP;
+
+
+      d.vy *=
+        DAMP;
+
+
+      d.x +=
+        d.vx;
+
+
+      d.y +=
+        d.vy;
+
+
+      // =====================================================================
+      // RADIUS
+      // =====================================================================
+
+      d.targetR =
+        targetRadius;
+
+
+      d.r +=
+        (
+          d.targetR -
+          d.r
+        ) *
+        0.12;
+
+    }
+
+  }
+
+
+  // =========================================================================
+  // FUSION GROUPING
+  // =========================================================================
+
+  function getFusionGroups() {
+
+    const active =
+      dots.filter(
+        d =>
+          d.active
+      );
+
+
+    /*
+     * Weniger als zwei aktive Punkte
+     * können nicht fusionieren.
+     */
+    if (
+      active.length < 2
+    ) {
+
+      return [];
+
+    }
+
+
+    const groups = [];
+
+    const used =
+      new Set();
+
+
+    for (
+      const start of active
+    ) {
+
+      if (
+        used.has(start)
+      ) {
+        continue;
+      }
+
+
+      /*
+       * Neue Gruppe.
+       */
+      const group =
+        [start];
+
+
+      used.add(
+        start
+      );
+
+
+      /*
+       * Nur die beiden anderen aktiven
+       * Punkte können überhaupt Kandidaten
+       * sein.
+       */
+      for (
+        const candidate of active
+      ) {
+
+        if (
+          used.has(candidate)
+        ) {
+          continue;
+        }
+
+
+        /*
+         * Prüfen, ob der Kandidat einen
+         * Punkt der Gruppe berührt.
+         */
+        const touches =
+          group.some(
+            member => {
+
+              const distance =
+                Math.hypot(
+
+                  member.x -
+                  candidate.x,
+
+                  member.y -
+                  candidate.y
+
+                );
+
+
+              return (
+                distance <=
+                FUSION_DISTANCE
+              );
+
+            }
+          );
+
+
+        if (
+          touches &&
+          group.length <
+          3
+        ) {
+
+          group.push(
+            candidate
+          );
+
+
+          used.add(
+            candidate
+          );
+
+        }
+
+      }
+
+
+      /*
+       * Nur echte Fusionen rendern.
+       */
+      if (
+        group.length >= 2
+      ) {
+
+        groups.push(
+          group
+        );
+
+      }
+
+    }
+
+
+    return groups;
+
+  }
+
+
+  // =========================================================================
+  // RENDER
+  // =========================================================================
+
+  function render() {
+
+    normalDots.innerHTML = '';
+    liquidGroups.innerHTML = '';
+
+
+    const fusionGroups =
+      getFusionGroups();
+
+
+    const fusedDots =
+      new Set();
+
+
+    /*
+     * Fusionspunkte sammeln.
+     */
+    for (
+      const group of fusionGroups
+    ) {
+
+      for (
+        const d of group
+      ) {
+
+        d.fused =
+          true;
+
+
+        fusedDots.add(
+          d
+        );
+
+      }
+
+    }
+
+
+    // =======================================================================
+    // NORMAL DOTS
+    // =======================================================================
+
+    for (
+      const d of dots
+    ) {
+
+      /*
+       * Fusionspunkte werden separat
+       * gerendert.
+       */
+      if (
+        fusedDots.has(d)
+      ) {
+
+        continue;
+
+      }
+
+
+      const circle =
+        document.createElementNS(
+          'http://www.w3.org/2000/svg',
+          'circle'
+        );
+
+
+      circle.classList.add(
+        'normal-dot'
+      );
+
+
+      circle.setAttribute(
+        'cx',
+        d.x
+      );
+
+
+      circle.setAttribute(
+        'cy',
+        d.y
+      );
+
+
+      circle.setAttribute(
+        'r',
+        d.r
+      );
+
+
+      normalDots.appendChild(
+        circle
+      );
+
+    }
+
+
+    // =======================================================================
+    // LIQUID GROUPS
+    // =======================================================================
+
+    for (
+      const group of fusionGroups
+    ) {
+
+      const g =
+        document.createElementNS(
+          'http://www.w3.org/2000/svg',
+          'g'
+        );
+
+
+      g.classList.add(
+        'liquid-group'
+      );
+
+
+      /*
+       * Nur maximal drei Punkte
+       * befinden sich innerhalb
+       * derselben Liquid Group.
+       */
+      for (
+        const d of group
+      ) {
+
+        const circle =
+          document.createElementNS(
+            'http://www.w3.org/2000/svg',
+            'circle'
+          );
+
+
+        circle.setAttribute(
+          'cx',
+          d.x
+        );
+
+
+        circle.setAttribute(
+          'cy',
+          d.y
+        );
+
+
+        circle.setAttribute(
+          'r',
+          d.r
+        );
+
+
+        circle.setAttribute(
+          'fill',
+          '#fff'
+        );
+
+
+        g.appendChild(
+          circle
+        );
+
+      }
+
+
+      liquidGroups.appendChild(
+        g
+      );
+
+    }
+
+  }
+
+
+  // =========================================================================
+  // POINTER
+  // =========================================================================
+
+  function updatePointer(x, y) {
+
+    const rect =
+      wrap.getBoundingClientRect();
+
+
+    mouse.x =
+      x -
+      rect.left;
+
+
+    mouse.y =
+      y -
+      rect.top;
+
+
+    mouse.on =
+      true;
+
+  }
+
+
+  // =========================================================================
+  // MOUSE
+  // =========================================================================
+
+  window.addEventListener(
+    'mousemove',
+    e => {
+
+      updatePointer(
+        e.clientX,
+        e.clientY
+      );
+
+    },
+    {
+      passive: true
+    }
+  );
+
+
+  window.addEventListener(
+    'mouseleave',
+    () => {
+
+      mouse.on =
+        false;
+
+    },
+    {
+      passive: true
+    }
+  );
+
+
+  // =========================================================================
+  // TOUCH
+  // =========================================================================
+
+  wrap.addEventListener(
+    'touchstart',
+    e => {
+
+      const touch =
+        e.touches[0];
+
+
+      if (!touch) {
+        return;
+      }
+
+
+      updatePointer(
+        touch.clientX,
+        touch.clientY
+      );
+
+    },
+    {
+      passive: true
+    }
+  );
+
+
+  wrap.addEventListener(
+    'touchmove',
+    e => {
+
+      e.preventDefault();
+
+
+      const touch =
+        e.touches[0];
+
+
+      if (!touch) {
+        return;
+      }
+
+
+      updatePointer(
+        touch.clientX,
+        touch.clientY
+      );
+
+    },
+    {
+      passive: false
+    }
+  );
+
+
+  wrap.addEventListener(
+    'touchend',
+    () => {
+
+      mouse.on =
+        false;
+
+    },
+    {
+      passive: true
+    }
+  );
+
+
+  wrap.addEventListener(
+    'touchcancel',
+    () => {
+
+      mouse.on =
+        false;
+
+    },
+    {
+      passive: true
+    }
+  );
+
+
+  // =========================================================================
+  // RESIZE
+  // =========================================================================
+
+  let resizeTimer;
+
+
+  window.addEventListener(
+    'resize',
+    () => {
+
+      clearTimeout(
+        resizeTimer
+      );
+
+
+      resizeTimer =
+        setTimeout(
+          resize,
+          100
+        );
+
+    },
+    {
+      passive: true
+    }
+  );
+
+
+  function resize() {
+
+    const rect =
+      wrap.getBoundingClientRect();
+
+
+    W =
+      rect.width;
+
+
+    H =
+      rect.height;
+
+
+    svg.setAttribute(
+      'viewBox',
+      `0 0 ${W} ${H}`
+    );
+
+
+    buildGrid();
+
+  }
+
+
+  // =========================================================================
+  // ANIMATION LOOP
+  // =========================================================================
+
+  function loop(now) {
+
+    const dt =
+      Math.min(
+
+        (
+          now -
+          lastTime
+        ) /
+        1000,
+
+        0.033
+
+      );
+
+
+    lastTime =
+      now;
+
+
+    tick(dt);
+
+    render();
+
+
+    requestAnimationFrame(
+      loop
+    );
+
+  }
+
+
+  // =========================================================================
+  // INIT
+  // =========================================================================
+
+  resize();
+
+
+  requestAnimationFrame(
+    loop
+  );
+
+})();
+</script>
 
 </body>
 </html>
