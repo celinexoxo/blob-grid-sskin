@@ -40,17 +40,8 @@
     background: #000;
     overflow: hidden;
 
-    /*
-     * Wichtig für iPhone/iPad:
-     * Browser darf die Touch-Bewegung nicht
-     * als Scroll-/Zoom-Geste interpretieren.
-     */
     touch-action: none;
 
-    /*
-     * Eigene Compositing-Layer können auf
-     * mobilen Geräten das Rendering stabilisieren.
-     */
     transform: translateZ(0);
     -webkit-transform: translateZ(0);
   }
@@ -66,10 +57,6 @@
     transform: translateZ(0);
     -webkit-transform: translateZ(0);
 
-    /*
-     * Verhindert unnötige Browser-Optimierungen
-     * rund um Text-/SVG-Selektion.
-     */
     pointer-events: none;
   }
 
@@ -81,9 +68,6 @@
     fill: #fff;
     filter: url(#mercury);
 
-    /*
-     * GPU-Layer-Hinweis für WebKit.
-     */
     transform: translateZ(0);
     -webkit-transform: translateZ(0);
   }
@@ -182,6 +166,21 @@ preserveAspectRatio="none"
 
 
   // =========================================================================
+  // DEVICE
+  // =========================================================================
+
+  /*
+   * Mobile wird ausschließlich über Touch/Coarse Pointer erkannt.
+   *
+   * Desktop/MacBook bleibt dadurch komplett unverändert.
+   */
+  const IS_MOBILE =
+    window.matchMedia(
+      '(pointer: coarse)'
+    ).matches;
+
+
+  // =========================================================================
   // GRID
   // =========================================================================
 
@@ -191,9 +190,32 @@ preserveAspectRatio="none"
   const MAX_SPACING = 56;
   const MIN_SPACING = 34;
 
-  const BASE_R = 5.5;
 
-  const MAX_R = 24;
+  /*
+   * Desktop:
+   * ursprüngliche Grösse.
+   *
+   * Mobile:
+   * etwas kleinere Grundgrösse.
+   */
+  const BASE_R =
+    IS_MOBILE
+      ? 4.5
+      : 5.5;
+
+
+  /*
+   * Desktop:
+   * 24
+   *
+   * Mobile:
+   * etwas kleiner, damit die aktiven
+   * Punkte nicht zu dominant werden.
+   */
+  const MAX_R =
+    IS_MOBILE
+      ? 20
+      : 24;
 
 
   // =========================================================================
@@ -202,11 +224,12 @@ preserveAspectRatio="none"
 
   const CURSOR_RADIUS = 185;
 
-  const MAX_PULL = 25;
+  const MAX_PULL =
+    IS_MOBILE
+      ? 21
+      : 25;
 
-  /*
-   * Niemals mehr als drei aktive Punkte.
-   */
+
   const ACTIVE_COUNT = 3;
 
 
@@ -216,7 +239,43 @@ preserveAspectRatio="none"
 
   const DISTANT_RADIUS = 260;
 
-  const DISTANT_MIN_SCALE = 0.55;
+
+  /*
+   * Mobile:
+   * noch etwas kleinere äussere Punkte.
+   *
+   * Desktop bleibt bei 55 %.
+   */
+  const DISTANT_MIN_SCALE =
+    IS_MOBILE
+      ? 0.48
+      : 0.55;
+
+
+  // =========================================================================
+  // MOBILE OPACITY
+  // =========================================================================
+
+  /*
+   * Nur Mobile:
+   *
+   * Punkte direkt beim Finger:
+   * 100 % sichtbar.
+   *
+   * Aussen:
+   * bis auf 16 % herunter.
+   *
+   * Dadurch entsteht ein weiches
+   * Lichtzentrum.
+   */
+  const MOBILE_MIN_OPACITY = 0.16;
+
+
+  /*
+   * Bereich, über den die Helligkeit
+   * ausläuft.
+   */
+  const MOBILE_FADE_RADIUS = 300;
 
 
   // =========================================================================
@@ -256,27 +315,12 @@ preserveAspectRatio="none"
   // PERFORMANCE
   // =========================================================================
 
-  /*
-   * Wir vermeiden unnötige SVG-DOM-Operationen.
-   *
-   * Die Kreise werden nur EINMAL erzeugt.
-   * Danach werden nur noch ihre Attribute
-   * aktualisiert.
-   */
-
   const normalElements = [];
 
   const liquidElements = [];
 
   const liquidGroupsCache = [];
 
-
-  /*
-   * Auf Touch-Geräten können 60fps bereits
-   * eine hohe Last darstellen.
-   *
-   * 60fps bleiben der Standard.
-   */
   const MAX_FRAME_DT = 0.033;
 
 
@@ -323,7 +367,8 @@ preserveAspectRatio="none"
       MAX_SPACING,
       Math.max(
         MIN_SPACING,
-        availableWidth / (COLS - 1)
+        availableWidth /
+        (COLS - 1)
       )
     );
 
@@ -364,11 +409,6 @@ preserveAspectRatio="none"
 
   function createRenderObjects() {
 
-    /*
-     * Normale Punkte.
-     *
-     * Werden nur einmal erzeugt.
-     */
     normalDots.replaceChildren();
 
 
@@ -397,11 +437,7 @@ preserveAspectRatio="none"
 
 
     /*
-     * Maximal drei Punkte können
-     * gleichzeitig fusionieren.
-     *
-     * Deshalb benötigen wir auch nur
-     * drei Liquid-Gruppen.
+     * Maximal drei Liquid-Gruppen.
      */
     for (
       let i = 0;
@@ -425,9 +461,6 @@ preserveAspectRatio="none"
       const circles = [];
 
 
-      /*
-       * Maximal drei Kreise pro Gruppe.
-       */
       for (
         let j = 0;
         j < ACTIVE_COUNT;
@@ -444,9 +477,6 @@ preserveAspectRatio="none"
         );
 
 
-        /*
-         * Initial unsichtbar.
-         */
         circle.style.display =
           'none';
 
@@ -495,19 +525,23 @@ preserveAspectRatio="none"
 
 
     const gridWidth =
-      (COLS - 1) * spacing;
+      (COLS - 1) *
+      spacing;
 
 
     const gridHeight =
-      (ROWS - 1) * spacing;
+      (ROWS - 1) *
+      spacing;
 
 
     const ox =
-      (W - gridWidth) / 2;
+      (W - gridWidth) /
+      2;
 
 
     const oy =
-      (H - gridHeight) / 2;
+      (H - gridHeight) /
+      2;
 
 
     dots = [];
@@ -548,7 +582,12 @@ preserveAspectRatio="none"
 
           r: BASE_R,
 
-          targetR: BASE_R,
+          targetR:
+            BASE_R,
+
+          opacity: 1,
+
+          targetOpacity: 1,
 
           col,
           row,
@@ -586,7 +625,8 @@ preserveAspectRatio="none"
         BOUNCE_AMP *
         (
           0.7 +
-          Math.random() * 0.55
+          Math.random() *
+          0.55
         )
 
     });
@@ -595,7 +635,8 @@ preserveAspectRatio="none"
     nextDropAt =
       t +
       1.8 +
-      Math.random() * 2.4;
+      Math.random() *
+      2.4;
 
   }
 
@@ -613,16 +654,6 @@ preserveAspectRatio="none"
     }
 
 
-    /*
-     * Statt map() + filter() + sort()
-     * suchen wir direkt die drei kleinsten
-     * Distanzen.
-     *
-     * Bei nur 81 Punkten spart das zwar
-     * keine riesige Rechenzeit, aber deutlich
-     * weniger temporäre Objekte werden erzeugt.
-     */
-
     let first = null;
     let second = null;
     let third = null;
@@ -630,6 +661,11 @@ preserveAspectRatio="none"
     let firstDist = Infinity;
     let secondDist = Infinity;
     let thirdDist = Infinity;
+
+
+    const radiusSq =
+      CURSOR_RADIUS *
+      CURSOR_RADIUS;
 
 
     for (const d of dots) {
@@ -651,8 +687,7 @@ preserveAspectRatio="none"
 
       if (
         distanceSq >
-        CURSOR_RADIUS *
-        CURSOR_RADIUS
+        radiusSq
       ) {
 
         continue;
@@ -762,9 +797,6 @@ preserveAspectRatio="none"
     }
 
 
-    /*
-     * Alte Waves entfernen.
-     */
     if (
       drops.length
     ) {
@@ -789,9 +821,6 @@ preserveAspectRatio="none"
       getActiveDots();
 
 
-    /*
-     * Alle deaktivieren.
-     */
     for (const d of dots) {
 
       d.active = 0;
@@ -799,9 +828,6 @@ preserveAspectRatio="none"
     }
 
 
-    /*
-     * Maximal drei aktivieren.
-     */
     for (const d of activeDots) {
 
       d.active = 1;
@@ -827,8 +853,12 @@ preserveAspectRatio="none"
         BASE_R;
 
 
+      let targetOpacity =
+        1;
+
+
       // =====================================================================
-      // DISTANCE SCALE
+      // DISTANCE SCALE + MOBILE FADE
       // =====================================================================
 
       if (mouse.on) {
@@ -843,12 +873,20 @@ preserveAspectRatio="none"
           mouse.y;
 
 
+        const distanceSq =
+          dx * dx +
+          dy * dy;
+
+
         const distance =
           Math.sqrt(
-            dx * dx +
-            dy * dy
+            distanceSq
           );
 
+
+        // ===================================================================
+        // SIZE
+        // ===================================================================
 
         if (
           distance <
@@ -892,6 +930,67 @@ preserveAspectRatio="none"
             DISTANT_MIN_SCALE;
 
         }
+
+
+        // ===================================================================
+        // MOBILE OPACITY
+        // ===================================================================
+
+        if (IS_MOBILE) {
+
+          /*
+           * 1 = direkt beim Finger
+           * 0 = am äusseren Rand.
+           */
+          const fadeNormalized =
+            Math.max(
+              0,
+              Math.min(
+                1,
+                1 -
+                distance /
+                MOBILE_FADE_RADIUS
+              )
+            );
+
+
+          /*
+           * Smoothstep.
+           *
+           * Dadurch bleibt das Zentrum
+           * länger hell und fällt erst
+           * weiter aussen weich ab.
+           */
+          const fade =
+            fadeNormalized *
+            fadeNormalized *
+            (
+              3 -
+              2 *
+              fadeNormalized
+            );
+
+
+          targetOpacity =
+            MOBILE_MIN_OPACITY +
+            (
+              1 -
+              MOBILE_MIN_OPACITY
+            ) *
+            fade;
+
+        }
+
+      }
+      else {
+
+        /*
+         * Wenn kein Finger aktiv ist,
+         * dürfen alle Punkte wieder
+         * vollständig sichtbar sein.
+         */
+        targetOpacity =
+          1;
 
       }
 
@@ -1027,6 +1126,10 @@ preserveAspectRatio="none"
             offset;
 
 
+          /*
+           * Aktive Punkte werden
+           * stärker als normale Punkte.
+           */
           targetRadius =
             BASE_R +
             (
@@ -1034,6 +1137,21 @@ preserveAspectRatio="none"
               BASE_R
             ) *
             pull;
+
+
+          /*
+           * Aktive Punkte sind immer
+           * vollständig weiss.
+           *
+           * Das erzeugt das gewünschte
+           * helle Zentrum.
+           */
+          if (IS_MOBILE) {
+
+            targetOpacity =
+              1;
+
+          }
 
         }
 
@@ -1091,6 +1209,26 @@ preserveAspectRatio="none"
         ) *
         0.12;
 
+
+      // =====================================================================
+      // OPACITY
+      // =====================================================================
+
+      d.targetOpacity =
+        targetOpacity;
+
+
+      /*
+       * Helligkeit etwas schneller
+       * als die Grösse reagieren lassen.
+       */
+      d.opacity +=
+        (
+          d.targetOpacity -
+          d.opacity
+        ) *
+        0.16;
+
     }
 
   }
@@ -1102,13 +1240,9 @@ preserveAspectRatio="none"
 
   function getFusionGroups() {
 
-    const active =
-      [];
+    const active = [];
 
 
-    /*
-     * Nur maximal drei Punkte.
-     */
     for (const d of dots) {
 
       if (
@@ -1135,6 +1269,11 @@ preserveAspectRatio="none"
 
     const used =
       new Set();
+
+
+    const fusionDistanceSq =
+      FUSION_DISTANCE *
+      FUSION_DISTANCE;
 
 
     for (
@@ -1197,8 +1336,7 @@ preserveAspectRatio="none"
 
           if (
             distanceSq <=
-            FUSION_DISTANCE *
-            FUSION_DISTANCE
+            fusionDistanceSq
           ) {
 
             touches =
@@ -1263,9 +1401,6 @@ preserveAspectRatio="none"
       new Set();
 
 
-    /*
-     * Fusionspunkte markieren.
-     */
     for (
       const group of fusionGroups
     ) {
@@ -1291,13 +1426,6 @@ preserveAspectRatio="none"
     // NORMAL DOTS
     // =======================================================================
 
-    /*
-     * KEIN innerHTML.
-     *
-     * KEINE neuen SVG-Elemente.
-     *
-     * Nur Attribute aktualisieren.
-     */
     for (
       let i = 0;
       i < dots.length;
@@ -1345,6 +1473,22 @@ preserveAspectRatio="none"
         d.r
       );
 
+
+      /*
+       * Desktop:
+       * immer 100 %.
+       *
+       * Mobile:
+       * abhängig von der Entfernung
+       * zum Finger.
+       */
+      circle.setAttribute(
+        'opacity',
+        IS_MOBILE
+          ? d.opacity
+          : 1
+      );
+
     }
 
 
@@ -1352,12 +1496,9 @@ preserveAspectRatio="none"
     // LIQUID GROUPS
     // =======================================================================
 
-    /*
-     * Alle drei möglichen Gruppen
-     * zunächst deaktivieren.
-     */
     for (
-      const cached of liquidGroupsCache
+      const cached of
+      liquidGroupsCache
     ) {
 
       cached.group.style.display =
@@ -1365,7 +1506,8 @@ preserveAspectRatio="none"
 
 
       for (
-        const circle of cached.circles
+        const circle of
+        cached.circles
       ) {
 
         circle.style.display =
@@ -1376,10 +1518,6 @@ preserveAspectRatio="none"
     }
 
 
-    /*
-     * Danach nur tatsächlich benötigte
-     * Gruppen anzeigen.
-     */
     for (
       let groupIndex = 0;
       groupIndex <
@@ -1443,6 +1581,17 @@ preserveAspectRatio="none"
           d.r
         );
 
+
+        /*
+         * Fusionspunkte bleiben weiss,
+         * damit das Mercury-Lichtzentrum
+         * kräftig bleibt.
+         */
+        circle.setAttribute(
+          'opacity',
+          1
+        );
+
       }
 
     }
@@ -1478,15 +1627,6 @@ preserveAspectRatio="none"
 
   }
 
-
-  /*
-   * Pointer Events funktionieren auf
-   * modernen iPhones/iPads und Desktop
-   * gleichermaßen.
-   *
-   * Dadurch brauchen wir keine getrennten
-   * mousemove / touchmove Systeme mehr.
-   */
 
   wrap.addEventListener(
     'pointermove',
@@ -1548,18 +1688,10 @@ preserveAspectRatio="none"
   );
 
 
-  /*
-   * Wenn ein Touch ausserhalb des
-   * Containers endet.
-   */
   window.addEventListener(
     'pointerup',
     () => {
 
-      /*
-       * Bei Maus bleibt der Cursor aktiv.
-       * Bei Touch wird er deaktiviert.
-       */
       if (
         window.matchMedia(
           '(pointer: coarse)'
@@ -1607,10 +1739,6 @@ preserveAspectRatio="none"
   );
 
 
-  /*
-   * iOS Safari kann bei Orientation Change
-   * eine andere Viewport-Höhe liefern.
-   */
   window.addEventListener(
     'orientationchange',
     () => {
